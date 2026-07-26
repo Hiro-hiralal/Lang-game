@@ -9,13 +9,16 @@ import { TopBar } from "@/components/top-bar";
 import { WelcomeScreen } from "@/components/welcome-screen";
 import { useNarrator } from "@/hooks/use-narrator";
 import { usePersistentProgress } from "@/hooks/use-persistent-progress";
+import { useSoundscape } from "@/hooks/use-soundscape";
+import { ACTIVITIES } from "@/lib/game-data";
 import type { Screen } from "@/lib/game-types";
 
 export function StorySproutsApp() {
   const [screen, setScreen] = useState<Screen>("welcome");
   const [gardenGrew, setGardenGrew] = useState(false);
   const { progress, updateProgress, resetProgress } = usePersistentProgress();
-  const { speak, stop } = useNarrator(progress.soundOn);
+  const narrator = useNarrator(progress.soundOn);
+  const soundscape = useSoundscape(progress.soundOn);
 
   useEffect(() => {
     document.documentElement.classList.toggle(
@@ -26,13 +29,18 @@ export function StorySproutsApp() {
   }, [progress.reducedMotion]);
 
   const navigate = (next: Screen) => {
-    stop();
+    narrator.stop();
     setScreen(next);
   };
 
   const startAdventure = () => {
     setGardenGrew(false);
+    soundscape.start();
     navigate("session");
+    narrator.speak(
+      ACTIVITIES[0].voice.prompt,
+      "First, a listening game. Which picture rhymes with star: car, moon, or fish?",
+    );
   };
 
   const completeAdventure = () => {
@@ -49,6 +57,12 @@ export function StorySproutsApp() {
   };
 
   const toggleSound = () => {
+    if (progress.soundOn) {
+      narrator.stop();
+      soundscape.stop();
+    } else {
+      soundscape.start(true);
+    }
     updateProgress((current) => ({ ...current, soundOn: !current.soundOn }));
   };
 
@@ -97,10 +111,12 @@ export function StorySproutsApp() {
               onStart={startAdventure}
               onExplore={() => navigate("map")}
               onHearWelcome={() =>
-                speak(
-                  `Welcome back, ${progress.childName}! Pip found a path with silly sounds, glowing letters and one tiny story. Ready to make words bloom?`,
+                narrator.speak(
+                  "welcome",
+                  "Oh! There you are, story explorer! I found a path with silly sounds, glowing letters, and one tiny story. Ready to make words bloom?",
                 )
               }
+              isSpeaking={narrator.isSpeaking}
             />
           )}
 
@@ -118,8 +134,9 @@ export function StorySproutsApp() {
                 sessionsCompleted={progress.sessionsCompleted}
                 onStart={startAdventure}
                 onSpeak={() =>
-                  speak(
-                    "I picked a path with sounds you know and one new word-growing trick. We’ll do it together!",
+                  narrator.speak(
+                    "map",
+                    "I picked a path with sounds you know and one new word-growing trick. We will do it together!",
                   )
                 }
               />
@@ -129,8 +146,9 @@ export function StorySproutsApp() {
           {screen === "session" && (
             <GameSession
               childName={progress.childName}
-              soundOn={progress.soundOn}
               reducedMotion={progress.reducedMotion}
+              narrator={narrator}
+              playSound={soundscape.play}
               onExit={() => navigate("map")}
               onComplete={completeAdventure}
             />
