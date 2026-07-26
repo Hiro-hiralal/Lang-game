@@ -2,20 +2,38 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { CollectionBook } from "@/components/collection-book";
 import { GardenMap } from "@/components/garden-map";
 import { GameSession } from "@/components/game-session";
+import { MyGarden } from "@/components/my-garden";
 import { ParentDashboard } from "@/components/parent-dashboard";
+import { RegionScreen } from "@/components/region-screen";
+import { StoryLibrary } from "@/components/story-library";
 import { TopBar } from "@/components/top-bar";
 import { WelcomeScreen } from "@/components/welcome-screen";
 import { useNarrator } from "@/hooks/use-narrator";
 import { usePersistentProgress } from "@/hooks/use-persistent-progress";
 import { useSoundscape } from "@/hooks/use-soundscape";
-import { ACTIVITIES } from "@/lib/game-data";
-import type { Screen } from "@/lib/game-types";
+import {
+  ADVENTURES,
+  getAdventure,
+  getDailyAdventure,
+} from "@/lib/world-data";
+import type {
+  Adventure,
+  LibraryStory,
+  Screen,
+  ZoneId,
+} from "@/lib/game-types";
 
 export function StorySproutsApp() {
   const [screen, setScreen] = useState<Screen>("welcome");
-  const [gardenGrew, setGardenGrew] = useState(false);
+  const [selectedRegion, setSelectedRegion] =
+    useState<ZoneId>("sound-safari");
+  const [activeAdventure, setActiveAdventure] = useState<Adventure>(
+    ADVENTURES[0],
+  );
+  const [worldToast, setWorldToast] = useState<string | null>(null);
   const { progress, updateProgress, resetProgress } = usePersistentProgress();
   const narrator = useNarrator(progress.soundOn);
   const soundscape = useSoundscape(progress.soundOn);
@@ -33,27 +51,80 @@ export function StorySproutsApp() {
     setScreen(next);
   };
 
-  const startAdventure = () => {
-    setGardenGrew(false);
+  const startAdventure = (adventureId: string) => {
+    const adventure = getAdventure(adventureId) ?? ADVENTURES[0];
+    setActiveAdventure(adventure);
+    setSelectedRegion(adventure.regionId);
+    setWorldToast(null);
     soundscape.start();
     navigate("session");
-    narrator.speak(
-      ACTIVITIES[0].voice.prompt,
-      "First, a listening game. Which picture rhymes with star: car, moon, or fish?",
-    );
+    const first = adventure.activities[0];
+    narrator.speak(first.voice.prompt, first.bubble.prompt);
   };
 
   const completeAdventure = () => {
+    const alreadyCompleted = progress.completedAdventureIds.includes(
+      activeAdventure.id,
+    );
     updateProgress((current) => ({
       ...current,
       sessionsCompleted: current.sessionsCompleted + 1,
       seeds: current.seeds + 1,
-      gardenLevel: Math.min(current.gardenLevel + 1, 5),
-      masteredWords: Array.from(new Set([...current.masteredWords, "sit"])),
+      gardenLevel: Math.min(current.gardenLevel + (alreadyCompleted ? 0 : 1), 8),
+      masteredWords: Array.from(
+        new Set([
+          ...current.masteredWords,
+          ...activeAdventure.activities
+            .filter((activity) => activity.kind === "blend" || activity.kind === "word")
+            .map((activity) => {
+              const correct = activity.options.find((option) => option.correct);
+              return correct?.label.toLowerCase() ?? "";
+            })
+            .filter(Boolean),
+        ]),
+      ),
+      completedAdventureIds: Array.from(
+        new Set([...current.completedAdventureIds, activeAdventure.id]),
+      ),
+      unlockedStickerIds: Array.from(
+        new Set([
+          ...current.unlockedStickerIds,
+          activeAdventure.rewardStickerId,
+        ]),
+      ),
+      totalStars: current.totalStars + (alreadyCompleted ? 1 : 3),
+      dailyQuestDate: new Date().toISOString().slice(0, 10),
       lastPlayed: new Date().toISOString(),
     }));
-    setGardenGrew(true);
-    navigate("map");
+    setWorldToast(
+      alreadyCompleted
+        ? "Replay complete · one bonus star and a new seed!"
+        : `${activeAdventure.rewardName} joined your treasure book!`,
+    );
+    navigate("garden");
+  };
+
+  const plantSeed = (plantId: string, cost: number) => {
+    if (
+      progress.plantedSeedIds.includes(plantId) ||
+      progress.seeds < cost
+    ) {
+      return;
+    }
+    soundscape.play("correct");
+    updateProgress((current) => ({
+      ...current,
+      seeds: current.seeds - cost,
+      plantedSeedIds: [...current.plantedSeedIds, plantId],
+    }));
+  };
+
+  const readStory = (story: LibraryStory) => {
+    updateProgress((current) => ({
+      ...current,
+      readStoryIds: Array.from(new Set([...current.readStoryIds, story.id])),
+    }));
+    narrator.speak(story.narrationId, `${story.title}. ${story.lines.join(" ")}`);
   };
 
   const toggleSound = () => {
@@ -75,12 +146,20 @@ export function StorySproutsApp() {
 
   const resetShowcase = () => {
     const confirmed = window.confirm(
-      "Reset the showcase garden to its polished starting point?",
+      "Reset the whole reading world to its starting progress?",
     );
     if (!confirmed) return;
     resetProgress();
+    setWorldToast(null);
     navigate("welcome");
   };
+
+  const openRegion = (regionId: ZoneId) => {
+    setSelectedRegion(regionId);
+    navigate("region");
+  };
+
+  const dailyAdventure = getDailyAdventure(progress.completedAdventureIds);
 
   return (
     <div className="app-shell">
@@ -92,6 +171,13 @@ export function StorySproutsApp() {
           onNavigate={navigate}
           onToggleSound={toggleSound}
         />
+      )}
+
+      {worldToast && screen !== "session" && (
+        <div className="garden-toast" role="status">
+          <span>✦</span>
+          {worldToast}
+        </div>
       )}
 
       <AnimatePresence mode="wait">
@@ -108,12 +194,12 @@ export function StorySproutsApp() {
               childName={progress.childName}
               sessionsCompleted={progress.sessionsCompleted}
               soundOn={progress.soundOn}
-              onStart={startAdventure}
+              onStart={() => startAdventure(dailyAdventure.id)}
               onExplore={() => navigate("map")}
               onHearWelcome={() =>
                 narrator.speak(
                   "welcome",
-                  "Oh! There you are, story explorer! I found a path with silly sounds, glowing letters, and one tiny story. Ready to make words bloom?",
+                  "Oh! There you are, story explorer! Five magical regions are waiting. Ready to make words bloom?",
                 )
               }
               isSpeaking={narrator.isSpeaking}
@@ -121,36 +207,66 @@ export function StorySproutsApp() {
           )}
 
           {screen === "map" && (
-            <>
-              {gardenGrew && (
-                <div className="garden-toast" role="status">
-                  <span>✦</span>
-                  A moonflower seed joined your garden!
-                </div>
-              )}
-              <GardenMap
-                childName={progress.childName}
-                seeds={progress.seeds}
-                sessionsCompleted={progress.sessionsCompleted}
-                onStart={startAdventure}
-                onSpeak={() =>
-                  narrator.speak(
-                    "map",
-                    "I picked a path with sounds you know and one new word-growing trick. We will do it together!",
-                  )
-                }
-              />
-            </>
+            <GardenMap
+              progress={progress}
+              onStart={startAdventure}
+              onOpenRegion={openRegion}
+              onOpenGarden={() => navigate("garden")}
+              onOpenStories={() => navigate("stories")}
+              onOpenCollection={() => navigate("collection")}
+              onSpeak={() =>
+                narrator.speak(
+                  "map",
+                  "Every landmark is ready to explore. Finish a chapter to reveal the next path and earn a magical treasure.",
+                )
+              }
+              isSpeaking={narrator.isSpeaking}
+            />
+          )}
+
+          {screen === "region" && (
+            <RegionScreen
+              regionId={selectedRegion}
+              progress={progress}
+              onBack={() => navigate("map")}
+              onPlay={startAdventure}
+            />
           )}
 
           {screen === "session" && (
             <GameSession
               childName={progress.childName}
+              adventure={activeAdventure}
               reducedMotion={progress.reducedMotion}
               narrator={narrator}
               playSound={soundscape.play}
-              onExit={() => navigate("map")}
+              onExit={() => navigate("region")}
               onComplete={completeAdventure}
+            />
+          )}
+
+          {screen === "garden" && (
+            <MyGarden
+              seeds={progress.seeds}
+              plantedSeedIds={progress.plantedSeedIds}
+              onBack={() => navigate("map")}
+              onPlant={plantSeed}
+            />
+          )}
+
+          {screen === "stories" && (
+            <StoryLibrary
+              completedAdventureIds={progress.completedAdventureIds}
+              readStoryIds={progress.readStoryIds}
+              onBack={() => navigate("map")}
+              onRead={readStory}
+            />
+          )}
+
+          {screen === "collection" && (
+            <CollectionBook
+              unlockedStickerIds={progress.unlockedStickerIds}
+              onBack={() => navigate("map")}
             />
           )}
 

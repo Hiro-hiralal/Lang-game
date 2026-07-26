@@ -141,10 +141,11 @@ export const VOICE_LINES: Record<string, VoiceLine> = {
   },
   complete: {
     mood: "celebrate",
-    text: "You did it! Five reading stops, one tiny story, and a brand-new moonflower seed. Your garden grew because you listened, tried again, and kept every sound moving. High five!",
+    text: "You did it! Chapter complete. You earned a magical treasure and a glowing garden seed because you listened, tried again, and kept every sound moving. High five!",
   },
 };
 
 export function getVoiceLine(lineId: string) {
-  return VOICE_LINES[lineId];
+  return VOICE_LINES[lineId] ?? WORLD_VOICE_LINES[lineId];
 }
+import { WORLD_VOICE_LINES } from "@/lib/world-data";

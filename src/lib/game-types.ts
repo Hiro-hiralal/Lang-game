@@ -1,4 +1,12 @@
-export type Screen = "welcome" | "map" | "session" | "grownup";
+export type Screen =
+  | "welcome"
+  | "map"
+  | "region"
+  | "session"
+  | "garden"
+  | "stories"
+  | "collection"
+  | "grownup";
 
 export type ZoneId =
   | "sound-safari"
@@ -18,6 +26,12 @@ export interface PlayerProgress {
   soundOn: boolean;
   reducedMotion: boolean;
   lastPlayed: string | null;
+  completedAdventureIds: string[];
+  plantedSeedIds: string[];
+  unlockedStickerIds: string[];
+  readStoryIds: string[];
+  totalStars: number;
+  dailyQuestDate: string | null;
 }
 
 export interface Zone {
@@ -54,7 +68,9 @@ export interface ActivityBubble {
 }
 
 export interface Activity {
+  key: string;
   id: ZoneId;
+  kind: "rhyme" | "sound" | "letter" | "blend" | "word" | "story";
   title: string;
   eyebrow: string;
   instruction: string;
@@ -67,4 +83,36 @@ export interface Activity {
   bubble: ActivityBubble;
   letters?: string[];
   storyWords?: string[];
+}
+
+export interface Adventure {
+  id: string;
+  regionId: ZoneId;
+  title: string;
+  chapter: number;
+  description: string;
+  minutes: number;
+  difficulty: 1 | 2 | 3 | 4;
+  rewardStickerId: string;
+  rewardName: string;
+  storyId?: string;
+  activities: Activity[];
+}
+
+export interface LibraryStory {
+  id: string;
+  title: string;
+  subtitle: string;
+  regionId: ZoneId;
+  lines: string[];
+  narrationId: string;
+  unlockAdventureId: string;
+}
+
+export interface Sticker {
+  id: string;
+  name: string;
+  icon: string;
+  regionId: ZoneId;
+  description: string;
 }

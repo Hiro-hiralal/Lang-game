@@ -16,11 +16,12 @@ import {
 } from "lucide-react";
 import { PipGuide } from "@/components/pip-guide";
 import type { Narrator } from "@/hooks/use-narrator";
-import { ACTIVITIES, ZONES } from "@/lib/game-data";
-import type { Activity, AnswerOption } from "@/lib/game-types";
+import { ZONES } from "@/lib/game-data";
+import type { Activity, Adventure, AnswerOption } from "@/lib/game-types";
 
 interface GameSessionProps {
   childName: string;
+  adventure: Adventure;
   reducedMotion: boolean;
   narrator: Narrator;
   playSound: (effect: "tap" | "correct" | "try-again" | "hint" | "complete") => void;
@@ -30,6 +31,7 @@ interface GameSessionProps {
 
 export function GameSession({
   childName,
+  adventure,
   reducedMotion,
   narrator,
   playSound,
@@ -45,14 +47,15 @@ export function GameSession({
   const [completed, setCompleted] = useState(false);
   const retryTimer = useRef<number | null>(null);
   const { speak, stop, preload, isSpeaking } = narrator;
-  const activity = ACTIVITIES[index];
+  const activities = adventure.activities;
+  const activity = activities[index];
   const zone = ZONES.find((item) => item.id === activity.id) ?? ZONES[0];
-  const percent = ((index + (feedback === "correct" ? 1 : 0)) / ACTIVITIES.length) * 100;
+  const percent = ((index + (feedback === "correct" ? 1 : 0)) / activities.length) * 100;
 
   useEffect(() => {
-    const next = ACTIVITIES[index + 1];
+    const next = activities[index + 1];
     if (next) preload(next.voice.prompt);
-  }, [index, preload]);
+  }, [activities, index, preload]);
 
   useEffect(
     () => () => {
@@ -112,17 +115,17 @@ export function GameSession({
 
   const continueSession = () => {
     if (retryTimer.current) window.clearTimeout(retryTimer.current);
-    if (index === ACTIVITIES.length - 1) {
+    if (index === activities.length - 1) {
       setCompleted(true);
       playSound("complete");
       speak(
         "complete",
-        "You did it! Five reading stops and a new moonflower seed. Your garden grew because you listened and kept trying. High five!",
+        "You did it! Chapter complete. You earned a magical treasure and a glowing garden seed. High five!",
       );
       return;
     }
     const nextIndex = index + 1;
-    const nextActivity = ACTIVITIES[nextIndex];
+    const nextActivity = activities[nextIndex];
     setIndex(nextIndex);
     setSelected(null);
     setFeedback(null);
@@ -137,6 +140,7 @@ export function GameSession({
     return (
       <CompletionScreen
         childName={childName}
+        adventure={adventure}
         reducedMotion={reducedMotion}
         onComplete={onComplete}
       />
@@ -160,7 +164,7 @@ export function GameSession({
         <div className="session-progress">
           <div className="session-progress__label">
             <span>
-              Stop {index + 1} of {ACTIVITIES.length}
+              Challenge {index + 1} of {activities.length}
             </span>
             <strong>{activity.title}</strong>
           </div>
@@ -179,7 +183,7 @@ export function GameSession({
 
       <AnimatePresence mode="wait">
         <motion.section
-          key={activity.id}
+          key={activity.key}
           className="activity-shell"
           initial={{ opacity: 0, x: 30 }}
           animate={{ opacity: 1, x: 0 }}
@@ -227,7 +231,7 @@ export function GameSession({
 
           <ActivityVisual activity={activity} reducedMotion={reducedMotion} />
 
-          <div className={`answer-grid answer-grid--${activity.id}`}>
+          <div className={`answer-grid answer-grid--${activity.kind}`}>
             {activity.options.map((option) => {
               const isSelected = selected === option.id;
               const isEliminated = eliminated.includes(option.id);
@@ -279,7 +283,7 @@ export function GameSession({
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                 >
-                  {index === ACTIVITIES.length - 1 ? "Grow my garden" : "Next stop"}
+                  {index === activities.length - 1 ? "Claim my treasure" : "Next stop"}
                   <ArrowRight />
                 </motion.button>
               )}
@@ -297,7 +301,7 @@ interface ActivityVisualProps {
 }
 
 function ActivityVisual({ activity, reducedMotion }: ActivityVisualProps) {
-  if (activity.id === "sound-safari") {
+  if (activity.kind === "rhyme" || activity.kind === "sound") {
     return (
       <div className="activity-visual sound-visual" aria-hidden="true">
         <motion.span
@@ -305,10 +309,10 @@ function ActivityVisual({ activity, reducedMotion }: ActivityVisualProps) {
           animate={reducedMotion ? {} : { rotate: [0, 7, -5, 0], scale: [1, 1.05, 1] }}
           transition={{ duration: 2.4, repeat: Infinity }}
         >
-          ★
+          {activity.kind === "rhyme" ? "♪" : "✦"}
         </motion.span>
         <div>
-          <span>star</span>
+          <span>{activity.kind === "rhyme" ? "echo" : "listen"}</span>
           <div className="sound-wave">
             {[1, 2, 3, 4, 5].map((bar) => (
               <motion.i
@@ -323,7 +327,7 @@ function ActivityVisual({ activity, reducedMotion }: ActivityVisualProps) {
     );
   }
 
-  if (activity.id === "letter-lanterns") {
+  if (activity.kind === "letter") {
     return (
       <div className="activity-visual lantern-visual" aria-hidden="true">
         <div className="lantern-cord" />
@@ -336,14 +340,14 @@ function ActivityVisual({ activity, reducedMotion }: ActivityVisualProps) {
           }
           transition={{ duration: 1.8, repeat: Infinity }}
         >
-          m
+          {activity.options.find((option) => option.correct)?.label ?? "m"}
         </motion.div>
         <span className="lantern-glow" />
       </div>
     );
   }
 
-  if (activity.id === "blend-bridge") {
+  if (activity.kind === "blend") {
     return (
       <div className="activity-visual bridge-visual" aria-hidden="true">
         <div className="bridge-visual__river" />
@@ -371,7 +375,7 @@ function ActivityVisual({ activity, reducedMotion }: ActivityVisualProps) {
     );
   }
 
-  if (activity.id === "word-garden") {
+  if (activity.kind === "word") {
     return (
       <div className="activity-visual word-visual" aria-hidden="true">
         <div className="word-visual__tiles">
@@ -402,6 +406,13 @@ function ActivityVisual({ activity, reducedMotion }: ActivityVisualProps) {
     );
   }
 
+  const storyText =
+    activity.storyWords?.join(" ") ??
+    activity.prompt.split("?")[0] ??
+    "A tiny story is ready.";
+  const storyIcon =
+    activity.options.find((option) => option.correct)?.icon ?? "📖";
+
   return (
     <div className="activity-visual story-visual">
       <div className="story-visual__stage" aria-hidden="true">
@@ -409,12 +420,11 @@ function ActivityVisual({ activity, reducedMotion }: ActivityVisualProps) {
         <span className="story-visual__curtain story-visual__curtain--right" />
       </div>
       <p className="story-visual__text">
-        <span>Sam sat.</span>
-        <span>A cat sat with Sam.</span>
+        <span>{storyText}</span>
       </p>
       <div className="story-visual__characters" aria-hidden="true">
-        <span>🧒🏽</span>
-        <span>🐈</span>
+        <span>🦊</span>
+        <span>{storyIcon}</span>
       </div>
     </div>
   );
@@ -422,12 +432,14 @@ function ActivityVisual({ activity, reducedMotion }: ActivityVisualProps) {
 
 interface CompletionScreenProps {
   childName: string;
+  adventure: Adventure;
   reducedMotion: boolean;
   onComplete: () => void;
 }
 
 function CompletionScreen({
   childName,
+  adventure,
   reducedMotion,
   onComplete,
 }: CompletionScreenProps) {
@@ -471,21 +483,21 @@ function CompletionScreen({
             ✦
           </motion.span>
         </div>
-        <span className="completion__kicker">Adventure complete</span>
+        <span className="completion__kicker">Chapter complete</span>
         <h1>You made words bloom, {childName}!</h1>
         <p>
-          You listened closely, lit a letter, blended a word and read for
-          meaning. Your new moonflower seed is ready to plant.
+          You finished <strong>{adventure.title}</strong>. Pip found a glowing
+          seed and added <strong>{adventure.rewardName}</strong> to your treasure book.
         </p>
         <div className="completion__wins">
           <span>
-            <Check /> 5 reading stops
+            <Check /> {adventure.activities.length} reading challenges
           </span>
           <span>
             <Sparkles /> +1 glowing seed
           </span>
           <span>
-            <Check /> New sticker: Moonflower
+            <Check /> New treasure: {adventure.rewardName}
           </span>
         </div>
         <button className="primary-button primary-button--hero" onClick={onComplete}>

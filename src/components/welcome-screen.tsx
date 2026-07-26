@@ -65,8 +65,8 @@ export function WelcomeScreen({
             <span> words bloom?</span>
           </h1>
           <p className="welcome-screen__intro">
-            Play with sounds, light letter lanterns and read a tiny story
-            with Pip. Today’s adventure takes about six happy minutes.
+            Explore five magical regions, complete reading quests, grow a
+            living garden and fill your treasure book with Pip.
           </p>
 
           <div className="welcome-screen__profile">
@@ -104,7 +104,7 @@ export function WelcomeScreen({
               <ArrowRight />
             </button>
             <button className="text-button" onClick={onExplore}>
-              Explore my garden
+              Explore my world
               <ArrowRight />
             </button>
           </div>

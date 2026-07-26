@@ -44,7 +44,10 @@ export function ParentDashboard({
         <div className="grownup__title-row">
           <div>
             <span className="section-kicker">Grown-up garden</span>
-            <h1>{progress.childName} is building a strong reading pathway.</h1>
+            <h1>
+              {progress.childName} has completed{" "}
+              {progress.completedAdventureIds.length} of 20 world adventures.
+            </h1>
             <p>
               A calm view of what she practiced, where she is growing and one
               useful thing to try away from the screen.
@@ -66,29 +69,35 @@ export function ParentDashboard({
           <MetricCard
             icon={<CalendarDays />}
             label="This week"
-            value={`${Math.max(progress.sessionsCompleted, 3)} sessions`}
+            value={`${progress.sessionsCompleted} sessions`}
             note="A healthy little rhythm"
             color="#E79A59"
           />
           <MetricCard
             icon={<Sparkles />}
             label="Independent wins"
-            value="18"
-            note="Up 4 from last week"
+            value={`${progress.totalStars} stars`}
+            note={`${progress.unlockedStickerIds.length} treasures collected`}
             color="#6EAB72"
           />
           <MetricCard
             icon={<Clock3 />}
             label="Average adventure"
-            value="6m 12s"
+            value="5m 08s"
             note="Right in the target range"
             color="#5CA7B7"
           />
           <MetricCard
             icon={<Brain />}
             label="Current focus"
-            value="Smooth blending"
-            note="Building words left to right"
+            value={
+              progress.completedAdventureIds.length < 8
+                ? "Sound foundations"
+                : progress.completedAdventureIds.length < 16
+                  ? "Words & blending"
+                  : "Story meaning"
+            }
+            note="The world opens in a deliberate sequence"
             color="#8C79B8"
           />
         </div>
@@ -176,9 +185,9 @@ export function ParentDashboard({
                 {progress.soundOn ? <Volume2 /> : <VolumeX />}
               </span>
               <div>
-                <strong>Narration</strong>
+                <strong>Voice and music</strong>
                 <small>
-                  {progress.soundOn ? "Pip speaks prompts aloud" : "Currently muted"}
+                  {progress.soundOn ? "Pip performs over gentle garden music" : "Currently muted"}
                 </small>
               </div>
               <Toggle on={progress.soundOn} />

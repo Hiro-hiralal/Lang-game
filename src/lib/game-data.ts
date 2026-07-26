@@ -11,12 +11,18 @@ export const DEFAULT_PROGRESS: PlayerProgress = {
   soundOn: true,
   reducedMotion: false,
   lastPlayed: null,
+  completedAdventureIds: ["echo-picnic", "moon-mouse"],
+  plantedSeedIds: ["moonflower", "sunbell"],
+  unlockedStickerIds: ["echo-shell", "moon-mouse"],
+  readStoryIds: [],
+  totalStars: 9,
+  dailyQuestDate: null,
 };
 
 export const ZONES: Zone[] = [
   {
     id: "sound-safari",
-    name: "Sound Safari",
+    name: "Echo Meadow",
     eyebrow: "Listen & play",
     description: "Rhyme, clap and find the sounds hiding in words.",
     color: "#F7C56A",
@@ -26,7 +32,7 @@ export const ZONES: Zone[] = [
   },
   {
     id: "letter-lanterns",
-    name: "Letter Lanterns",
+    name: "Lantern Grove",
     eyebrow: "Sounds meet letters",
     description: "Light a lantern by matching each sound to its letter.",
     color: "#E88B78",
@@ -36,7 +42,7 @@ export const ZONES: Zone[] = [
   },
   {
     id: "blend-bridge",
-    name: "Blend Bridge",
+    name: "Blend Brook",
     eyebrow: "Stretch & blend",
     description: "Sweep across the stones and join sounds into words.",
     color: "#6FB6C6",
@@ -56,7 +62,7 @@ export const ZONES: Zone[] = [
   },
   {
     id: "story-stage",
-    name: "Story Stage",
+    name: "Story Theater",
     eyebrow: "Read a tiny tale",
     description: "Bring a little story to life, one brave word at a time.",
     color: "#9C8AC7",
@@ -68,7 +74,9 @@ export const ZONES: Zone[] = [
 
 export const ACTIVITIES: Activity[] = [
   {
+    key: "featured-sound",
     id: "sound-safari",
+    kind: "rhyme",
     title: "Sound Safari",
     eyebrow: "Warm-up · Rhyming",
     instruction: "Listen for the word that ends the same way.",
@@ -101,7 +109,9 @@ export const ACTIVITIES: Activity[] = [
     },
   },
   {
+    key: "featured-letter",
     id: "letter-lanterns",
+    kind: "letter",
     title: "Letter Lanterns",
     eyebrow: "Focus · Letter sound",
     instruction: "Tap the letter that makes Pip’s sound.",
@@ -135,7 +145,9 @@ export const ACTIVITIES: Activity[] = [
     },
   },
   {
+    key: "featured-blend",
     id: "blend-bridge",
+    kind: "blend",
     title: "Blend Bridge",
     eyebrow: "Focus · Smooth blending",
     instruction: "Slide across the sounds, then choose the word.",
@@ -169,7 +181,9 @@ export const ACTIVITIES: Activity[] = [
     },
   },
   {
+    key: "featured-word",
     id: "word-garden",
+    kind: "word",
     title: "Word Garden",
     eyebrow: "Practice · Change one sound",
     instruction: "Change one letter to grow a new word.",
@@ -203,7 +217,9 @@ export const ACTIVITIES: Activity[] = [
     },
   },
   {
+    key: "featured-story",
     id: "story-stage",
+    kind: "story",
     title: "Story Stage",
     eyebrow: "Finale · Tiny story",
     instruction: "Read with Pip, then answer the story question.",
