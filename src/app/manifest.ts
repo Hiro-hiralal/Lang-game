@@ -13,8 +13,8 @@ export default function manifest(): MetadataRoute.Manifest {
     icons: [
       {
         src: "/art/pip-fox.webp",
-        sizes: "1254x1254",
-        type: "image/png",
+        sizes: "900x900",
+        type: "image/webp",
       },
     ],
   };
