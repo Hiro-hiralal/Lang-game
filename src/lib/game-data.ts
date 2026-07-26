@@ -73,7 +73,7 @@ export const ACTIVITIES: Activity[] = [
     eyebrow: "Warm-up · Rhyming",
     instruction: "Listen for the word that ends the same way.",
     prompt: "Which picture rhymes with star?",
-    helper: "Star… /ar/. Find another word with /ar/.",
+    helper: "Listen to the ends: st-ar, c-ar.",
     options: [
       { id: "car", label: "Car", spokenLabel: "car", icon: "🚗", correct: true },
       { id: "moon", label: "Moon", spokenLabel: "moon", icon: "🌙", correct: false },
@@ -81,30 +81,66 @@ export const ACTIVITIES: Activity[] = [
     ],
     celebration: "Star and car rhyme. You heard the matching ending!",
     skill: "Rhyming words",
+    voice: {
+      prompt: "sound.prompt",
+      hints: ["sound.hint.1", "sound.hint.2"],
+      correct: "sound.correct",
+      wrong: {
+        moon: "sound.wrong.moon",
+        fish: "sound.wrong.fish",
+      },
+    },
+    bubble: {
+      prompt: "Which picture has the same bouncy ending as star?",
+      hints: ["Listen to the ends: st-ar, c-ar.", "Star, car! Tap the little car."],
+      correct: "Star and car rhyme. Your listening ears caught it!",
+      wrong: {
+        moon: "Moon ends with oo. We need a word ending in ar.",
+        fish: "Fish ends with ish. We need a word ending in ar.",
+      },
+    },
   },
   {
     id: "letter-lanterns",
     title: "Letter Lanterns",
     eyebrow: "Focus · Letter sound",
     instruction: "Tap the letter that makes Pip’s sound.",
-    prompt: "Mmm… like moon. Which letter says /m/?",
-    helper: "Put your lips together: mmm. Now look for lowercase m.",
+    prompt: "Mmmmm… like moon. Which lowercase letter makes that sound?",
+    helper: "Close your lips and hum. Look for the letter with two little hills.",
     options: [
       { id: "s", label: "s", spokenLabel: "s", correct: false },
       { id: "m", label: "m", spokenLabel: "m", correct: true },
       { id: "t", label: "t", spokenLabel: "t", correct: false },
     ],
-    celebration: "M says /m/. That lantern is glowing!",
+    celebration: "Mmmmm, marvelous! That lantern is glowing!",
     skill: "Letter–sound: m",
     letters: ["s", "m", "t"],
+    voice: {
+      prompt: "letter.prompt",
+      hints: ["letter.hint.1", "letter.hint.2"],
+      correct: "letter.correct",
+      wrong: {
+        s: "letter.wrong.s",
+        t: "letter.wrong.t",
+      },
+    },
+    bubble: {
+      prompt: "Hum with me: mmmmm. Which lowercase letter makes that sound?",
+      hints: ["Closed lips, gentle hum. Look for two little hills.", "That humming sound belongs to lowercase m."],
+      correct: "Mmmmm, marvelous! You lit the m lantern.",
+      wrong: {
+        s: "That one makes a snake sound. We need the humming sound.",
+        t: "That one makes a quick tap. We need the humming sound.",
+      },
+    },
   },
   {
     id: "blend-bridge",
     title: "Blend Bridge",
     eyebrow: "Focus · Smooth blending",
     instruction: "Slide across the sounds, then choose the word.",
-    prompt: "/mmm/ … /aaa/ … /t/. What word?",
-    helper: "Keep the sounds touching: mmmaaat… mat.",
+    prompt: "Mmmmm… aaaaa… t. Sweep the sounds together. What word?",
+    helper: "Keep the sounds touching: mmmmm-aaaaa-t. Mat.",
     options: [
       { id: "mat", label: "Mat", spokenLabel: "mat", icon: "▦", correct: true },
       { id: "sun", label: "Sun", spokenLabel: "sun", icon: "☀️", correct: false },
@@ -113,6 +149,24 @@ export const ACTIVITIES: Activity[] = [
     celebration: "Mmm–aaa–t… mat! You carried every sound across.",
     skill: "Blend CVC word: mat",
     letters: ["m", "a", "t"],
+    voice: {
+      prompt: "blend.prompt",
+      hints: ["blend.hint.1", "blend.hint.2"],
+      correct: "blend.correct",
+      wrong: {
+        sun: "blend.wrong.sun",
+        cat: "blend.wrong.cat",
+      },
+    },
+    bubble: {
+      prompt: "Keep the sounds touching: mmmmm-aaaaa-t. What word?",
+      hints: ["Sweep faster: mmmmm-aaaaa-t. Mat.", "The word starts with the humming sound mmmmm."],
+      correct: "Mat! You swept every sound across the bridge.",
+      wrong: {
+        sun: "Sun starts with sssss. Our word starts with mmmmm.",
+        cat: "Cat starts with kuh. Our word starts with mmmmm.",
+      },
+    },
   },
   {
     id: "word-garden",
@@ -120,7 +174,7 @@ export const ACTIVITIES: Activity[] = [
     eyebrow: "Practice · Change one sound",
     instruction: "Change one letter to grow a new word.",
     prompt: "Change sat into sit. Which vowel belongs in the middle?",
-    helper: "Say sit slowly: /s/ /i/ /t/. Listen to the middle.",
+    helper: "Say sit slowly: sss-ih-t. Listen to the middle.",
     options: [
       { id: "a", label: "a", spokenLabel: "a", correct: false },
       { id: "i", label: "i", spokenLabel: "i", correct: true },
@@ -129,6 +183,24 @@ export const ACTIVITIES: Activity[] = [
     celebration: "S–i–t makes sit. A whole new word just bloomed!",
     skill: "Medial vowel substitution",
     letters: ["s", "_", "t"],
+    voice: {
+      prompt: "word.prompt",
+      hints: ["word.hint.1", "word.hint.2"],
+      correct: "word.correct",
+      wrong: {
+        a: "word.wrong.a",
+        o: "word.wrong.o",
+      },
+    },
+    bubble: {
+      prompt: "Change sat into sit. Which letter makes the quick middle sound?",
+      hints: ["Stretch it: sss-ih-t. Listen to the middle.", "Plant lowercase i between s and t."],
+      correct: "Sit! One tiny sound grew a whole new word.",
+      wrong: {
+        a: "A keeps the old word sat. Listen for ih in sit.",
+        o: "O would make sot. Listen for ih in sit.",
+      },
+    },
   },
   {
     id: "story-stage",
@@ -145,6 +217,24 @@ export const ACTIVITIES: Activity[] = [
     celebration: "Yes, the cat sat with Sam. You read for meaning!",
     skill: "Connected text & comprehension",
     storyWords: ["Sam", "sat.", "A", "cat", "sat", "with", "Sam."],
+    voice: {
+      prompt: "story.prompt",
+      hints: ["story.hint.1", "story.hint.2"],
+      correct: "story.correct",
+      wrong: {
+        dog: "story.wrong.dog",
+        fox: "story.wrong.fox",
+      },
+    },
+    bubble: {
+      prompt: "Sam sat. A cat sat with Sam. Who sat with Sam?",
+      hints: ["Look at the second sentence. Which animal did it name?", "The story says: A cat sat with Sam."],
+      correct: "The cat! You read the words and remembered their meaning.",
+      wrong: {
+        dog: "The story never named a dog. Check the second sentence.",
+        fox: "Pip is cheering, but he was not in this tiny story.",
+      },
+    },
   },
 ];
 

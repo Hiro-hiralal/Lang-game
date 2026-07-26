@@ -47,8 +47,8 @@ export function TopBar({
         <button
           className="icon-button"
           onClick={onToggleSound}
-          aria-label={soundOn ? "Turn narration off" : "Turn narration on"}
-          title={soundOn ? "Narration on" : "Narration off"}
+          aria-label={soundOn ? "Turn voice and music off" : "Turn voice and music on"}
+          title={soundOn ? "Voice and music on" : "Voice and music off"}
         >
           {soundOn ? <Volume2 /> : <VolumeX />}
         </button>

@@ -9,6 +9,7 @@ interface PipGuideProps {
   onSpeak?: () => void;
   mood?: "hello" | "thinking" | "celebrate";
   compact?: boolean;
+  isSpeaking?: boolean;
 }
 
 export function PipGuide({
@@ -16,6 +17,7 @@ export function PipGuide({
   onSpeak,
   mood = "hello",
   compact = false,
+  isSpeaking = false,
 }: PipGuideProps) {
   return (
     <motion.div
@@ -38,7 +40,10 @@ export function PipGuide({
         />
       </motion.div>
       <div className="pip-guide__bubble">
-        <span className="pip-guide__name">Pip says</span>
+        <span className="pip-guide__name">
+          {isSpeaking && <i className="pip-guide__wave" aria-hidden="true" />}
+          {isSpeaking ? "Pip is performing" : "Pip says"}
+        </span>
         <p>{message}</p>
         {onSpeak && (
           <button
@@ -47,7 +52,7 @@ export function PipGuide({
             aria-label="Hear Pip say this again"
           >
             <Volume2 />
-            Hear it
+            {isSpeaking ? "Playing…" : "Hear it"}
           </button>
         )}
       </div>

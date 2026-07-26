@@ -39,6 +39,20 @@ export interface AnswerOption {
   correct: boolean;
 }
 
+export interface ActivityVoice {
+  prompt: string;
+  hints: [string, string];
+  correct: string;
+  wrong: Record<string, string>;
+}
+
+export interface ActivityBubble {
+  prompt: string;
+  hints: [string, string];
+  correct: string;
+  wrong: Record<string, string>;
+}
+
 export interface Activity {
   id: ZoneId;
   title: string;
@@ -49,6 +63,8 @@ export interface Activity {
   options: AnswerOption[];
   celebration: string;
   skill: string;
+  voice: ActivityVoice;
+  bubble: ActivityBubble;
   letters?: string[];
   storyWords?: string[];
 }

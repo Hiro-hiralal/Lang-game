@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import confetti from "canvas-confetti";
 import { AnimatePresence, motion } from "motion/react";
@@ -15,54 +15,63 @@ import {
   X,
 } from "lucide-react";
 import { PipGuide } from "@/components/pip-guide";
-import { useNarrator } from "@/hooks/use-narrator";
+import type { Narrator } from "@/hooks/use-narrator";
 import { ACTIVITIES, ZONES } from "@/lib/game-data";
 import type { Activity, AnswerOption } from "@/lib/game-types";
 
 interface GameSessionProps {
   childName: string;
-  soundOn: boolean;
   reducedMotion: boolean;
+  narrator: Narrator;
+  playSound: (effect: "tap" | "correct" | "try-again" | "hint" | "complete") => void;
   onExit: () => void;
   onComplete: () => void;
 }
 
 export function GameSession({
   childName,
-  soundOn,
   reducedMotion,
+  narrator,
+  playSound,
   onExit,
   onComplete,
 }: GameSessionProps) {
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<"correct" | "try-again" | null>(null);
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [eliminated, setEliminated] = useState<string[]>([]);
   const [hintLevel, setHintLevel] = useState(0);
   const [completed, setCompleted] = useState(false);
-  const { speak, stop } = useNarrator(soundOn);
+  const retryTimer = useRef<number | null>(null);
+  const { speak, stop, preload, isSpeaking } = narrator;
   const activity = ACTIVITIES[index];
   const zone = ZONES.find((item) => item.id === activity.id) ?? ZONES[0];
   const percent = ((index + (feedback === "correct" ? 1 : 0)) / ACTIVITIES.length) * 100;
 
-  const spokenPrompt = useMemo(
-    () => `${activity.instruction} ${activity.prompt}`,
-    [activity.instruction, activity.prompt],
+  useEffect(() => {
+    const next = ACTIVITIES[index + 1];
+    if (next) preload(next.voice.prompt);
+  }, [index, preload]);
+
+  useEffect(
+    () => () => {
+      stop();
+      if (retryTimer.current) window.clearTimeout(retryTimer.current);
+    },
+    [stop],
   );
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => speak(spokenPrompt), 420);
-    return () => window.clearTimeout(timer);
-  }, [speak, spokenPrompt]);
-
-  useEffect(() => stop, [stop]);
-
   const chooseAnswer = (option: AnswerOption) => {
-    if (feedback === "correct") return;
+    if (feedback === "correct" || eliminated.includes(option.id)) return;
     setSelected(option.id);
+    playSound("tap");
 
     if (option.correct) {
       setFeedback("correct");
-      speak(activity.celebration);
+      setFeedbackMessage(activity.bubble.correct);
+      playSound("correct");
+      speak(activity.voice.correct, activity.celebration);
       if (!reducedMotion) {
         void confetti({
           particleCount: 58,
@@ -75,32 +84,53 @@ export function GameSession({
       }
     } else {
       setFeedback("try-again");
-      setHintLevel((current) => Math.min(current + 1, 2));
-      speak(`Good try. ${activity.helper}`);
-      window.setTimeout(() => {
+      const nextHint = Math.min(hintLevel + 1, 2);
+      const message =
+        activity.bubble.wrong[option.id] ?? activity.bubble.hints[nextHint - 1];
+      const voiceLine =
+        activity.voice.wrong[option.id] ?? activity.voice.hints[nextHint - 1];
+      setHintLevel(nextHint);
+      setFeedbackMessage(message);
+      setEliminated((current) => [...current, option.id]);
+      playSound("try-again");
+      speak(voiceLine, message);
+      retryTimer.current = window.setTimeout(() => {
         setSelected(null);
         setFeedback(null);
-      }, 1150);
+        setFeedbackMessage(null);
+      }, 1650);
     }
   };
 
   const showHint = () => {
-    setHintLevel((current) => Math.min(current + 1, 2));
-    speak(activity.helper);
+    const nextHint = Math.min(hintLevel + 1, 2);
+    setHintLevel(nextHint);
+    setFeedbackMessage(activity.bubble.hints[nextHint - 1]);
+    playSound("hint");
+    speak(activity.voice.hints[nextHint - 1], activity.bubble.hints[nextHint - 1]);
   };
 
   const continueSession = () => {
+    if (retryTimer.current) window.clearTimeout(retryTimer.current);
     if (index === ACTIVITIES.length - 1) {
       setCompleted(true);
+      playSound("complete");
       speak(
-        `You did it, ${childName}! Five reading stops and a new moonflower seed. Your garden grew because you kept trying.`,
+        "complete",
+        "You did it! Five reading stops and a new moonflower seed. Your garden grew because you listened and kept trying. High five!",
       );
       return;
     }
-    setIndex((current) => current + 1);
+    const nextIndex = index + 1;
+    const nextActivity = ACTIVITIES[nextIndex];
+    setIndex(nextIndex);
     setSelected(null);
     setFeedback(null);
+    setFeedbackMessage(null);
+    setEliminated([]);
     setHintLevel(0);
+    playSound("tap");
+    speak(nextActivity.voice.prompt, nextActivity.bubble.prompt);
   };
 
   if (completed) {
@@ -139,9 +169,9 @@ export function GameSession({
           </div>
         </div>
         <button
-          className="session-speak"
-          onClick={() => speak(spokenPrompt)}
-          aria-label="Hear the instruction again"
+          className={`session-speak ${isSpeaking ? "is-speaking" : ""}`}
+          onClick={() => speak(activity.voice.prompt, activity.bubble.prompt)}
+          aria-label={isSpeaking ? "Pip is speaking" : "Hear the instruction again"}
         >
           <Volume2 />
         </button>
@@ -169,23 +199,30 @@ export function GameSession({
 
           <PipGuide
             message={
-              hintLevel > 0 && feedback !== "correct"
-                ? activity.helper
-                : feedback === "correct"
-                  ? activity.celebration
-                  : activity.prompt
+              feedbackMessage ??
+              (feedback === "correct"
+                ? activity.bubble.correct
+                : hintLevel > 0
+                  ? activity.bubble.hints[hintLevel - 1]
+                  : activity.bubble.prompt)
             }
             mood={feedback === "correct" ? "celebrate" : hintLevel > 0 ? "thinking" : "hello"}
             onSpeak={() =>
               speak(
                 feedback === "correct"
+                  ? activity.voice.correct
+                  : hintLevel > 0
+                    ? activity.voice.hints[hintLevel - 1]
+                    : activity.voice.prompt,
+                feedback === "correct"
                   ? activity.celebration
                   : hintLevel > 0
-                    ? activity.helper
-                    : spokenPrompt,
+                    ? activity.bubble.hints[hintLevel - 1]
+                    : activity.bubble.prompt,
               )
             }
             compact
+            isSpeaking={isSpeaking}
           />
 
           <ActivityVisual activity={activity} reducedMotion={reducedMotion} />
@@ -193,6 +230,7 @@ export function GameSession({
           <div className={`answer-grid answer-grid--${activity.id}`}>
             {activity.options.map((option) => {
               const isSelected = selected === option.id;
+              const isEliminated = eliminated.includes(option.id);
               const state =
                 isSelected && feedback === "correct"
                   ? "correct"
@@ -202,8 +240,9 @@ export function GameSession({
               return (
                 <motion.button
                   key={option.id}
-                  className={`answer-card ${state ? `answer-card--${state}` : ""}`}
+                  className={`answer-card ${state ? `answer-card--${state}` : ""} ${isEliminated && !isSelected ? "answer-card--eliminated" : ""}`}
                   onClick={() => chooseAnswer(option)}
+                  disabled={isEliminated}
                   whileHover={reducedMotion ? {} : { y: -4, scale: 1.015 }}
                   whileTap={{ scale: 0.97 }}
                   animate={
