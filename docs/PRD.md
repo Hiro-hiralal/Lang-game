@@ -589,3 +589,4 @@ The private beta may launch only when:
 - Supabase changelog: https://supabase.com/changelog
 - Vercel, *Next.js on Vercel*: https://vercel.com/docs/frameworks/full-stack/nextjs
 - Vercel, *Environment variables*: https://vercel.com/docs/environment-variables
+
