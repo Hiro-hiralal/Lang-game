@@ -9,6 +9,7 @@ interface WelcomeScreenProps {
   childName: string;
   sessionsCompleted: number;
   soundOn: boolean;
+  isSpeaking: boolean;
   onStart: () => void;
   onExplore: () => void;
   onHearWelcome: () => void;
@@ -18,6 +19,7 @@ export function WelcomeScreen({
   childName,
   sessionsCompleted,
   soundOn,
+  isSpeaking,
   onStart,
   onExplore,
   onHearWelcome,
@@ -84,7 +86,7 @@ export function WelcomeScreen({
             </div>
             {soundOn && (
               <button
-                className="icon-button icon-button--warm"
+                className={`icon-button icon-button--warm ${isSpeaking ? "is-speaking" : ""}`}
                 onClick={onHearWelcome}
                 aria-label="Hear the welcome message"
               >
@@ -108,8 +110,8 @@ export function WelcomeScreen({
           </div>
 
           <p className="welcome-screen__grownup-note">
-            Grown-ups: narration is on. No microphone or sign-in is needed for
-            this showcase.
+            Grown-ups: Pip uses an expressive AI voice with gentle garden
+            music. No microphone or sign-in is needed.
           </p>
         </motion.div>
       </section>
