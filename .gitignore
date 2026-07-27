@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Pre-generated narration audio, produced by npm run narration:generate.
+# Rebuildable from source and large, so it is not tracked.
+/public/narration
