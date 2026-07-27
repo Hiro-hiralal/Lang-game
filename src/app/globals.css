@@ -4758,3 +4758,42 @@ a:focus-visible {
 .confusion-note small {
   color: var(--ink-soft);
 }
+
+/* ============================================================
+   Regions recover as their skills mature.
+   The state comes from mastery, not from chapters clicked.
+   ============================================================ */
+
+.world-region-card--sleeping .world-region-card__art {
+  filter: saturate(0.35) brightness(0.86);
+}
+
+.world-region-card--stirring .world-region-card__art {
+  filter: saturate(0.6) brightness(0.94);
+}
+
+.world-region-card--growing .world-region-card__art {
+  filter: saturate(0.85);
+}
+
+.world-region-card--blooming .world-region-card__art {
+  filter: saturate(1.08);
+}
+
+.world-region-card--blooming {
+  border-color: var(--zone-color);
+  box-shadow: 0 0 0 3px var(--zone-glow), var(--shadow-soft);
+}
+
+.world-region-card__progress {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.world-region-card__progress small {
+  font-size: 0.76rem;
+  font-weight: 500;
+  opacity: 0.75;
+}

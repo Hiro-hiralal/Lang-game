@@ -26,6 +26,7 @@ import {
   type HintLevel,
 } from "@/lib/learning/hint-ladder";
 import { interactionOf, type ActivityResult } from "@/lib/activity-types";
+import { reactToAnswer } from "@/lib/pip-reactions";
 import type { Activity, Adventure } from "@/lib/game-types";
 
 interface GameSessionProps {
@@ -113,9 +114,22 @@ export function GameSession({
       expectedId: result.expectedId,
     });
 
+    const reaction = reactToAnswer(
+      {
+        correct: result.correct,
+        hintLevel,
+        mode: isAssisted(hintLevel) ? "assisted" : result.mode,
+        retries: misses,
+      },
+      activity.skillId,
+    );
+
     if (result.correct) {
       setFeedback("correct");
-      setFeedbackMessage(activity.bubble.correct);
+      // Pip's own reaction first, then the authored celebration. A clean
+      // first try and a fourth attempt after three hints used to get the
+      // identical line.
+      setFeedbackMessage(`${reaction.text} ${activity.bubble.correct}`);
       playSound("correct");
       speak(activity.voice.correct, activity.celebration);
 
@@ -142,7 +156,7 @@ export function GameSession({
     const targetedVoice = result.chosenId
       ? activity.voice.wrong[result.chosenId]
       : undefined;
-    const message = targeted ?? step.message;
+    const message = `${reaction.text} ${targeted ?? step.message}`;
     const voiceLine = targetedVoice ?? step.voiceId;
 
     setFeedback("try-again");

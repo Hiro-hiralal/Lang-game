@@ -6,7 +6,8 @@ import { ArrowRight, Play, Sparkles, Volume2 } from "lucide-react";
 import { StoryLogo } from "@/components/story-logo";
 
 interface WelcomeScreenProps {
-  childName: string;
+  /** Pip's own line for this arrival: notices absence and recent mastery. */
+  greeting: string;
   sessionsCompleted: number;
   soundOn: boolean;
   isSpeaking: boolean;
@@ -16,7 +17,7 @@ interface WelcomeScreenProps {
 }
 
 export function WelcomeScreen({
-  childName,
+  greeting,
   sessionsCompleted,
   soundOn,
   isSpeaking,
@@ -79,11 +80,7 @@ export function WelcomeScreen({
               />
             </div>
             <div>
-              <span>
-                {sessionsCompleted === 0
-                  ? "Hello! Pip has been waiting"
-                  : `Welcome back, ${childName}`}
-              </span>
+              <span>{greeting}</span>
               <small>
                 {sessionsCompleted === 0
                   ? "Your very first adventure is ready"

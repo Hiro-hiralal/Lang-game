@@ -22,6 +22,7 @@ import { useSoundscape } from "@/hooks/use-soundscape";
 import { getEpisodeForAdventure } from "@/lib/episodes/moon-mouse";
 import { pickDailyAdventure } from "@/lib/learning/composer";
 import { buildDashboardStats } from "@/lib/learning/dashboard";
+import { greet } from "@/lib/pip-reactions";
 import { ADVENTURES, getAdventure } from "@/lib/world-data";
 import type {
   Adventure,
@@ -227,7 +228,14 @@ export function StorySproutsApp() {
         >
           {screen === "welcome" && (
             <WelcomeScreen
-              childName={progress.childName}
+              greeting={
+                greet(
+                  progress.childName,
+                  progress.lastPlayed,
+                  learning.mastery,
+                  learning.evaluatedAt,
+                ).text
+              }
               sessionsCompleted={progress.sessionsCompleted}
               soundOn={progress.soundOn}
               onStart={() => startAdventure(dailyAdventure.id)}
@@ -246,6 +254,7 @@ export function StorySproutsApp() {
             <GardenMap
               progress={progress}
               dailyAdventure={dailyAdventure}
+              mastery={learning.mastery}
               onStart={startAdventure}
               onOpenRegion={openRegion}
               onOpenGarden={() => navigate("garden")}
