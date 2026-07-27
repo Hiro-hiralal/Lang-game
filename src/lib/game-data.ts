@@ -1,6 +1,36 @@
 import type { Activity, PlayerProgress, Zone } from "@/lib/game-types";
 
+/**
+ * A genuinely empty starting state.
+ *
+ * This used to ship a fictional child ("Mia", 7 seeds, 3-day streak, two
+ * completed adventures) to every new player, so a first session opened on
+ * someone else's progress and the grown-up dashboard reported achievements
+ * that had never happened. The showcase fixture now lives in `DEMO_PROGRESS`
+ * and is opt-in via `?demo=1`.
+ */
 export const DEFAULT_PROGRESS: PlayerProgress = {
+  childName: "explorer",
+  sessionsCompleted: 0,
+  seeds: 0,
+  streak: 0,
+  masteredLetters: [],
+  masteredWords: [],
+  gardenLevel: 0,
+  soundOn: true,
+  reducedMotion: false,
+  lastPlayed: null,
+  completedAdventureIds: [],
+  plantedSeedIds: [],
+  unlockedStickerIds: [],
+  readStoryIds: [],
+  totalStars: 0,
+  dailyQuestDate: null,
+};
+
+/** Populated showcase state, reachable only through `?demo=1`. Never the default. */
+export const DEMO_PROGRESS: PlayerProgress = {
+  ...DEFAULT_PROGRESS,
   childName: "Mia",
   sessionsCompleted: 2,
   seeds: 7,
@@ -8,15 +38,10 @@ export const DEFAULT_PROGRESS: PlayerProgress = {
   masteredLetters: ["m", "s", "a", "t"],
   masteredWords: ["sat", "mat"],
   gardenLevel: 2,
-  soundOn: true,
-  reducedMotion: false,
-  lastPlayed: null,
   completedAdventureIds: ["echo-picnic", "moon-mouse"],
   plantedSeedIds: ["moonflower", "sunbell"],
   unlockedStickerIds: ["echo-shell", "moon-mouse"],
-  readStoryIds: [],
   totalStars: 9,
-  dailyQuestDate: null,
 };
 
 export const ZONES: Zone[] = [
@@ -75,6 +100,7 @@ export const ZONES: Zone[] = [
 export const ACTIVITIES: Activity[] = [
   {
     key: "featured-sound",
+    skillId: "rhyme",
     id: "sound-safari",
     kind: "rhyme",
     title: "Sound Safari",
@@ -110,6 +136,7 @@ export const ACTIVITIES: Activity[] = [
   },
   {
     key: "featured-letter",
+    skillId: "ls-m",
     id: "letter-lanterns",
     kind: "letter",
     title: "Letter Lanterns",
@@ -146,6 +173,7 @@ export const ACTIVITIES: Activity[] = [
   },
   {
     key: "featured-blend",
+    skillId: "blend-cvc",
     id: "blend-bridge",
     kind: "blend",
     title: "Blend Bridge",
@@ -182,6 +210,7 @@ export const ACTIVITIES: Activity[] = [
   },
   {
     key: "featured-word",
+    skillId: "medial-vowel",
     id: "word-garden",
     kind: "word",
     title: "Word Garden",
@@ -218,6 +247,7 @@ export const ACTIVITIES: Activity[] = [
   },
   {
     key: "featured-story",
+    skillId: "story-meaning",
     id: "story-stage",
     kind: "story",
     title: "Story Stage",
@@ -254,10 +284,3 @@ export const ACTIVITIES: Activity[] = [
   },
 ];
 
-export const SKILL_ROWS = [
-  { name: "Rhyming words", status: "Secure", score: 92, color: "#E9A84C" },
-  { name: "Letter sounds · m s a t", status: "Secure", score: 86, color: "#DF806C" },
-  { name: "Smooth blending", status: "Practicing", score: 68, color: "#5EAAB8" },
-  { name: "CVC word building", status: "Learning", score: 52, color: "#73A95B" },
-  { name: "Tiny-story meaning", status: "New", score: 28, color: "#8E7AB9" },
-];

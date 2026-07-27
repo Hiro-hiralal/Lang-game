@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { CollectionBook } from "@/components/collection-book";
+import { EpisodePlayer } from "@/components/episode/episode-player";
 import { GardenMap } from "@/components/garden-map";
 import { GameSession } from "@/components/game-session";
 import { MyGarden } from "@/components/my-garden";
@@ -11,14 +12,18 @@ import { RegionScreen } from "@/components/region-screen";
 import { StoryLibrary } from "@/components/story-library";
 import { TopBar } from "@/components/top-bar";
 import { WelcomeScreen } from "@/components/welcome-screen";
+import { useLearningRecord } from "@/hooks/use-learning-record";
 import { useNarrator } from "@/hooks/use-narrator";
-import { usePersistentProgress } from "@/hooks/use-persistent-progress";
-import { useSoundscape } from "@/hooks/use-soundscape";
 import {
-  ADVENTURES,
-  getAdventure,
-  getDailyAdventure,
-} from "@/lib/world-data";
+  nextStreak,
+  usePersistentProgress,
+} from "@/hooks/use-persistent-progress";
+import { useSoundscape } from "@/hooks/use-soundscape";
+import { getEpisodeForAdventure } from "@/lib/episodes/moon-mouse";
+import { pickDailyAdventure } from "@/lib/learning/composer";
+import { buildDashboardStats } from "@/lib/learning/dashboard";
+import { greet } from "@/lib/pip-reactions";
+import { ADVENTURES, getAdventure } from "@/lib/world-data";
 import type {
   Adventure,
   LibraryStory,
@@ -35,6 +40,7 @@ export function StorySproutsApp() {
   );
   const [worldToast, setWorldToast] = useState<string | null>(null);
   const { progress, updateProgress, resetProgress } = usePersistentProgress();
+  const learning = useLearningRecord();
   const narrator = useNarrator(progress.soundOn);
   const soundscape = useSoundscape(progress.soundOn);
 
@@ -57,18 +63,34 @@ export function StorySproutsApp() {
     setSelectedRegion(adventure.regionId);
     setWorldToast(null);
     soundscape.start();
+    learning.beginSession(adventure.id);
+
+    // Some chapters are full episodes, which open on their own story beat
+    // rather than straight into a question.
+    if (getEpisodeForAdventure(adventure.id)) {
+      navigate("episode");
+      return;
+    }
+
     navigate("session");
     const first = adventure.activities[0];
     narrator.speak(first.voice.prompt, first.bubble.prompt);
   };
 
-  const completeAdventure = () => {
+  const leaveAdventure = () => {
+    learning.finishSession(false);
+    navigate("region");
+  };
+
+  const completeAdventure = (rewardPlantId?: string) => {
     const alreadyCompleted = progress.completedAdventureIds.includes(
       activeAdventure.id,
     );
+    learning.finishSession(true);
     updateProgress((current) => ({
       ...current,
       sessionsCompleted: current.sessionsCompleted + 1,
+      streak: nextStreak(current.lastPlayed, current.streak, new Date()),
       seeds: current.seeds + 1,
       gardenLevel: Math.min(current.gardenLevel + (alreadyCompleted ? 0 : 1), 8),
       masteredWords: Array.from(
@@ -92,6 +114,11 @@ export function StorySproutsApp() {
           activeAdventure.rewardStickerId,
         ]),
       ),
+      // An episode's reward plants itself: the seed the child was handed in
+      // the story is in their garden when they get there, permanently.
+      plantedSeedIds: rewardPlantId
+        ? Array.from(new Set([...current.plantedSeedIds, rewardPlantId]))
+        : current.plantedSeedIds,
       totalStars: current.totalStars + (alreadyCompleted ? 1 : 3),
       dailyQuestDate: new Date().toISOString().slice(0, 10),
       lastPlayed: new Date().toISOString(),
@@ -150,6 +177,7 @@ export function StorySproutsApp() {
     );
     if (!confirmed) return;
     resetProgress();
+    learning.clearRecord();
     setWorldToast(null);
     navigate("welcome");
   };
@@ -159,11 +187,20 @@ export function StorySproutsApp() {
     navigate("region");
   };
 
-  const dailyAdventure = getDailyAdventure(progress.completedAdventureIds);
+  // Today's quest comes from what this child has demonstrated, not from the
+  // calendar.
+  const dailyAdventure =
+    pickDailyAdventure(
+      ADVENTURES,
+      progress.completedAdventureIds,
+      learning.mastery,
+      learning.evaluatedAt,
+    ) ?? ADVENTURES[0];
+  const episode = getEpisodeForAdventure(activeAdventure.id);
 
   return (
     <div className="app-shell">
-      {screen !== "welcome" && screen !== "session" && (
+      {screen !== "welcome" && screen !== "session" && screen !== "episode" && (
         <TopBar
           screen={screen}
           soundOn={progress.soundOn}
@@ -173,7 +210,7 @@ export function StorySproutsApp() {
         />
       )}
 
-      {worldToast && screen !== "session" && (
+      {worldToast && screen !== "session" && screen !== "episode" && (
         <div className="garden-toast" role="status">
           <span>✦</span>
           {worldToast}
@@ -191,7 +228,14 @@ export function StorySproutsApp() {
         >
           {screen === "welcome" && (
             <WelcomeScreen
-              childName={progress.childName}
+              greeting={
+                greet(
+                  progress.childName,
+                  progress.lastPlayed,
+                  learning.mastery,
+                  learning.evaluatedAt,
+                ).text
+              }
               sessionsCompleted={progress.sessionsCompleted}
               soundOn={progress.soundOn}
               onStart={() => startAdventure(dailyAdventure.id)}
@@ -209,6 +253,8 @@ export function StorySproutsApp() {
           {screen === "map" && (
             <GardenMap
               progress={progress}
+              dailyAdventure={dailyAdventure}
+              mastery={learning.mastery}
               onStart={startAdventure}
               onOpenRegion={openRegion}
               onOpenGarden={() => navigate("garden")}
@@ -240,8 +286,21 @@ export function StorySproutsApp() {
               reducedMotion={progress.reducedMotion}
               narrator={narrator}
               playSound={soundscape.play}
-              onExit={() => navigate("region")}
+              onExit={leaveAdventure}
               onComplete={completeAdventure}
+              onAttempt={learning.recordAttempt}
+            />
+          )}
+
+          {screen === "episode" && episode && (
+            <EpisodePlayer
+              episode={episode}
+              reducedMotion={progress.reducedMotion}
+              narrator={narrator}
+              playSound={soundscape.play}
+              onExit={leaveAdventure}
+              onComplete={completeAdventure}
+              onAttempt={learning.recordAttempt}
             />
           )}
 
@@ -273,6 +332,12 @@ export function StorySproutsApp() {
           {screen === "grownup" && (
             <ParentDashboard
               progress={progress}
+              stats={buildDashboardStats(
+                learning.attempts,
+                learning.sessions,
+                learning.mastery,
+                learning.evaluatedAt,
+              )}
               onBack={() => navigate("map")}
               onToggleSound={toggleSound}
               onToggleReducedMotion={toggleReducedMotion}

@@ -1189,6 +1189,24 @@ a:focus-visible {
   bottom: 18px;
 }
 
+/*
+ * The unlit state. The lantern holds no letter until the child has answered,
+ * so the activity cannot be solved by copying the shape on screen.
+ */
+.letter-lantern--dark {
+  background: radial-gradient(circle at 50% 35%, #d3c8b2, #ab9c80 58%, #8d7f68);
+  border-color: #6f5c3c;
+  color: #5d5140;
+  box-shadow:
+    inset 0 0 26px rgba(255, 255, 255, 0.28),
+    0 14px 28px rgba(80, 68, 41, 0.18);
+}
+
+.letter-lantern__listen {
+  font-size: 3.4rem;
+  opacity: 0.6;
+}
+
 .lantern-glow {
   position: absolute;
   width: 230px;
@@ -3872,4 +3890,910 @@ a:focus-visible {
     break-inside: avoid;
     box-shadow: none;
   }
+}
+
+/* ============================================================
+   Activity systems
+   Every system is touch-first with 64px-plus targets, and every
+   drag is also a tap-then-tap. PRD section 13.
+   ============================================================ */
+
+.builder,
+.sorter,
+.clapper,
+.tracer,
+.reader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 24px 18px;
+}
+
+/* ---------- Word builder ---------- */
+
+.builder {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(226, 237, 217, 0.6), rgba(255, 253, 247, 0.9));
+  border-radius: 26px;
+}
+
+.builder__soil {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 46px;
+  border-radius: 0 0 26px 26px;
+  background: linear-gradient(180deg, #b98a5d, #8f6640);
+  opacity: 0.35;
+}
+
+.builder__slots {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.builder__slot {
+  width: 74px;
+  height: 88px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  font-family: Georgia, serif;
+  font-size: 2.6rem;
+  font-weight: 700;
+  color: var(--ink);
+  background: #fff;
+  border: 3px solid rgba(49, 93, 72, 0.16);
+  box-shadow: 0 6px 0 rgba(49, 93, 72, 0.13);
+}
+
+.builder__slot--given {
+  background: var(--sage-pale);
+  border-style: solid;
+  color: var(--sage-dark);
+}
+
+.builder__slot--open {
+  border-style: dashed;
+  border-color: var(--marigold);
+  background: rgba(242, 180, 85, 0.1);
+  cursor: pointer;
+}
+
+.builder__slot--filled {
+  border-color: var(--sage);
+  background: #fff;
+  cursor: pointer;
+}
+
+.builder__slot:disabled {
+  cursor: default;
+}
+
+.builder__hint,
+.sorter__hint {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+}
+
+.builder__tray {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.builder__tile {
+  width: 66px;
+  height: 66px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  border: 3px solid rgba(49, 93, 72, 0.14);
+  background: #fff;
+  font-family: Georgia, serif;
+  font-size: 2rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 0 rgba(49, 93, 72, 0.13);
+  touch-action: none;
+}
+
+.builder__tile--held {
+  border-color: var(--marigold);
+  background: rgba(242, 180, 85, 0.2);
+  transform: translateY(-3px);
+}
+
+.builder__tile--spent {
+  opacity: 0.28;
+  cursor: default;
+  box-shadow: none;
+}
+
+.builder__reset,
+.bridge-visual__restart,
+.clapper__reset,
+.tracer__reset,
+.tracer__accept {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: 2px solid var(--line);
+  border-radius: 99px;
+  background: #fff;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.builder__reset svg,
+.clapper__reset svg,
+.tracer__reset svg,
+.tracer__accept svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* ---------- Sort baskets ---------- */
+
+.sorter__tray {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  min-height: 96px;
+  align-items: center;
+}
+
+.sorter__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 96px;
+  padding: 12px 16px;
+  border-radius: 20px;
+  border: 3px solid rgba(49, 93, 72, 0.14);
+  background: #fff;
+  box-shadow: 0 6px 0 rgba(49, 93, 72, 0.13);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.sorter__item span {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.sorter__item strong {
+  font-size: 1rem;
+}
+
+.sorter__item--held {
+  border-color: var(--marigold);
+  background: rgba(242, 180, 85, 0.18);
+  transform: translateY(-3px);
+}
+
+.sorter__item--wrong {
+  border-color: var(--coral);
+}
+
+.sorter__empty {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.sorter__baskets {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+}
+
+.sorter__basket {
+  flex: 1 1 180px;
+  min-height: 128px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 22px;
+  border: 3px dashed rgba(49, 93, 72, 0.22);
+  background: rgba(226, 237, 217, 0.45);
+  cursor: default;
+}
+
+.sorter__basket--ready {
+  border-color: var(--marigold);
+  border-style: solid;
+  background: rgba(242, 180, 85, 0.14);
+  cursor: pointer;
+}
+
+.sorter__basket-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 700;
+  color: var(--sage-dark);
+}
+
+.sorter__basket-contents {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  font-size: 1.7rem;
+}
+
+/* ---------- Blend sweep ---------- */
+
+.bridge-visual--sweep {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 22px 18px 24px;
+  /* The base .bridge-visual paints a river across the lower half, which sat on
+     top of the caption. The sweep variant keeps the bank and moves the water
+     into its own element so the text below it stays readable. */
+  background: linear-gradient(180deg, rgba(226, 241, 221, 0.85), rgba(255, 253, 247, 0.95));
+}
+
+.bridge-visual--sweep .bridge-visual__river {
+  right: 0;
+  left: 0;
+  bottom: 0;
+  height: 62px;
+  opacity: 0.5;
+}
+
+.blend-stone {
+  width: 78px;
+  height: 78px;
+  display: grid;
+  place-items: center;
+  border-radius: 22px;
+  border: 4px solid #8aa38f;
+  background: #eef3e9;
+  color: #46614f;
+  font-family: Georgia, serif;
+  font-size: 2.2rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: none;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
+}
+
+.blend-stone--next {
+  border-color: var(--marigold);
+  box-shadow: 0 0 0 6px rgba(242, 180, 85, 0.22);
+}
+
+.blend-stone--lit {
+  background: linear-gradient(180deg, #fff2c9, #f5c961);
+  border-color: #d99f3f;
+  color: #6b4a17;
+}
+
+.bridge-visual__firefly--tracked {
+  top: 34%;
+}
+
+.bridge-visual__plank {
+  width: min(340px, 86%);
+  height: 12px;
+  border-radius: 99px;
+  background: rgba(70, 97, 79, 0.18);
+  overflow: hidden;
+}
+
+.bridge-visual__plank span {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--marigold), var(--sage));
+}
+
+.bridge-visual__caption {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: center;
+}
+
+/* ---------- Syllable tap ---------- */
+
+.clapper__word {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 2rem;
+}
+
+.clapper__word strong {
+  font-family: Georgia, serif;
+  font-size: 2.4rem;
+  color: var(--sage-dark);
+}
+
+.clapper__drum {
+  width: 148px;
+  height: 148px;
+  border-radius: 50%;
+  border: 6px solid #c98a4e;
+  background: radial-gradient(circle at 50% 38%, #ffe6b8, #e8a961 70%);
+  font-size: 4rem;
+  cursor: pointer;
+  box-shadow: 0 12px 0 rgba(140, 92, 40, 0.28);
+}
+
+.clapper__beats {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 34px;
+}
+
+.clapper__beat {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--marigold);
+  box-shadow: 0 3px 0 rgba(180, 128, 44, 0.4);
+}
+
+.clapper__placeholder {
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+}
+
+.clapper__actions,
+.tracer__actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+}
+
+/* ---------- Letter tracing ---------- */
+
+.tracer__canvas {
+  width: min(300px, 78vw);
+  height: min(300px, 78vw);
+  border-radius: 26px;
+  background: var(--paper);
+  border: 3px solid var(--line);
+  touch-action: none;
+}
+
+.tracer__rule {
+  stroke: rgba(49, 93, 72, 0.16);
+  stroke-width: 0.8;
+}
+
+.tracer__rule--dashed {
+  stroke-dasharray: 3 3;
+}
+
+.tracer__guide {
+  fill: none;
+  stroke: rgba(49, 93, 72, 0.18);
+  stroke-width: 9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tracer__guide--active {
+  stroke: rgba(242, 180, 85, 0.55);
+  stroke-dasharray: 1 11;
+  stroke-width: 10;
+}
+
+.tracer__guide--done {
+  stroke: rgba(109, 154, 112, 0.5);
+}
+
+.tracer__trail {
+  fill: none;
+  stroke: var(--sage-dark);
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tracer__pip {
+  fill: var(--marigold);
+}
+
+.tracer__caption,
+.reader__tip {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+}
+
+.tracer__accept {
+  border-color: var(--sage);
+  color: var(--sage-dark);
+}
+
+/* ---------- Read along ---------- */
+
+.reader__page {
+  width: 100%;
+  max-width: 560px;
+  padding: 22px 20px;
+  border-radius: 24px;
+  background: var(--paper);
+  border: 3px solid var(--line);
+  box-shadow: var(--shadow-soft);
+}
+
+.reader__line {
+  margin: 0 0 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  /* Generous spacing and stable word placement: dyslexia-friendly layout,
+     PRD section 13. */
+  line-height: 1.9;
+}
+
+.reader__word {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  font-family: Georgia, serif;
+  font-size: 1.7rem;
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+
+.reader__word:hover {
+  background: rgba(242, 180, 85, 0.18);
+}
+
+.reader__word--current {
+  background: var(--marigold);
+  color: #4a3410;
+  font-weight: 700;
+}
+
+.reader__word--read {
+  color: var(--sage-dark);
+}
+
+.reader__controls {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+}
+
+.reader__play {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 22px;
+  border-radius: 99px;
+  border: 3px solid var(--sage);
+  background: #fff;
+  color: var(--sage-dark);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.reader__play svg,
+.reader__tip svg {
+  width: 18px;
+  height: 18px;
+}
+
+.reader__tip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* Reduced motion: the shell already sets this class on <html>. */
+.reduce-motion .blend-stone,
+.reduce-motion .builder__tile,
+.reduce-motion .sorter__item {
+  transition: none;
+}
+
+/* ============================================================
+   Episodes
+   A story whose beats happen to teach reading.
+   ============================================================ */
+
+.episode {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.episode--cinematic {
+  padding: 0;
+}
+
+.episode__close {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  z-index: 5;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--ink);
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+}
+
+.episode__header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 18px 8px 78px;
+}
+
+.episode__progress {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.episode__progress span {
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.episode__progress strong {
+  font-size: 1.05rem;
+}
+
+.episode__beat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 18px 34px;
+  max-width: 720px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.episode__beat-text {
+  margin: 0;
+  font-family: Georgia, serif;
+  font-size: 1.15rem;
+  font-style: italic;
+  color: var(--sage-dark);
+  text-align: center;
+}
+
+.episode__instruction {
+  margin: 0;
+  font-size: 1.5rem;
+  text-align: center;
+}
+
+/* ---------- Story cards ---------- */
+
+.story-cards {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 26px;
+  cursor: pointer;
+  transition: background 900ms ease;
+}
+
+.story-cards__skip {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-size: 0.92rem;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+
+.story-cards__skip svg {
+  width: 16px;
+  height: 16px;
+}
+
+.story-cards__scene {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 26px;
+  text-align: center;
+}
+
+.story-cards__cast {
+  display: flex;
+  gap: 18px;
+  font-size: clamp(4rem, 17vw, 7rem);
+  line-height: 1;
+  filter: drop-shadow(0 12px 26px rgba(0, 0, 0, 0.32));
+}
+
+.story-cards__text {
+  margin: 0;
+  max-width: 18ch;
+  font-family: Georgia, serif;
+  font-size: clamp(1.5rem, 5.4vw, 2.3rem);
+  line-height: 1.45;
+  color: #fff;
+  text-shadow: 0 3px 18px rgba(0, 0, 0, 0.42);
+}
+
+.story-cards__footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.story-cards__dots {
+  display: flex;
+  gap: 8px;
+}
+
+.story-cards__dots span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.42);
+  transition: background 220ms ease, transform 220ms ease;
+}
+
+.story-cards__dots span.is-active {
+  background: #fff;
+  transform: scale(1.32);
+}
+
+/* ---------- Explore scene ---------- */
+
+.explore-scene {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px 18px 34px;
+  transition: background 900ms ease;
+}
+
+.explore-scene__header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  /* Clears the absolutely-positioned close button in the episode shell. */
+  padding: 6px 0 0 60px;
+  color: #fff;
+}
+
+.explore-scene__header h1 {
+  margin: 2px 0 0;
+  font-size: 1.3rem;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.38);
+}
+
+.explore-scene__eyebrow {
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.82;
+}
+
+.explore-scene__stage {
+  position: relative;
+  flex: 1;
+  min-height: 340px;
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 62% 44%, rgba(255, 233, 179, 0.16), transparent 42%),
+    rgba(12, 18, 38, 0.42);
+  overflow: hidden;
+}
+
+.explore-scene__object {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  min-width: 72px;
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px;
+  border: none;
+  border-radius: 20px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.explore-scene__object span {
+  font-size: 2.7rem;
+  line-height: 1;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.4));
+}
+
+.explore-scene__object small {
+  padding: 2px 10px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--ink);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.explore-scene__object.is-found span {
+  filter: drop-shadow(0 0 16px rgba(255, 224, 150, 0.85));
+}
+
+.explore-scene__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 6px;
+  color: #fff;
+}
+
+.explore-scene__footer p {
+  margin: 0;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.36);
+}
+
+.adventure-card__badge {
+  margin-left: 9px;
+  padding: 2px 10px;
+  border-radius: 99px;
+  background: var(--lavender);
+  color: #fff;
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Empty and low-evidence states in the grown-up view. */
+.panel__empty {
+  margin: 0;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: rgba(226, 237, 217, 0.5);
+  color: var(--ink-soft);
+  line-height: 1.6;
+}
+
+.confusion-note {
+  margin-top: 22px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 2px dashed var(--line);
+}
+
+.confusion-note strong {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--sage-dark);
+}
+
+.confusion-note ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.confusion-note li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.confusion-note code {
+  padding: 1px 8px;
+  border-radius: 7px;
+  background: var(--sage-pale);
+  font-family: Georgia, serif;
+  font-size: 1.05rem;
+  color: var(--sage-dark);
+}
+
+.confusion-note small {
+  color: var(--ink-soft);
+}
+
+/* ============================================================
+   Regions recover as their skills mature.
+   The state comes from mastery, not from chapters clicked.
+   ============================================================ */
+
+.world-region-card--sleeping .world-region-card__art {
+  filter: saturate(0.35) brightness(0.86);
+}
+
+.world-region-card--stirring .world-region-card__art {
+  filter: saturate(0.6) brightness(0.94);
+}
+
+.world-region-card--growing .world-region-card__art {
+  filter: saturate(0.85);
+}
+
+.world-region-card--blooming .world-region-card__art {
+  filter: saturate(1.08);
+}
+
+.world-region-card--blooming {
+  border-color: var(--zone-color);
+  box-shadow: 0 0 0 3px var(--zone-glow), var(--shadow-soft);
+}
+
+.world-region-card__progress {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.world-region-card__progress small {
+  font-size: 0.76rem;
+  font-weight: 500;
+  opacity: 0.75;
 }

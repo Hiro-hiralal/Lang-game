@@ -6,7 +6,14 @@ import type {
   Sticker,
   ZoneId,
 } from "@/lib/game-types";
-import type { VoiceLine, VoiceMood } from "@/lib/voice-lines";
+import type { InteractionKind, SortConfig } from "@/lib/activity-types";
+import {
+  getSkill,
+  letterSoundSkill,
+  type SkillId,
+} from "@/lib/learning/skills";
+import type { VoiceLine, VoiceMood } from "@/lib/narration-registry";
+import { registerVoiceLine } from "@/lib/narration-registry";
 
 interface ActivitySeed {
   key: string;
@@ -18,12 +25,210 @@ interface ActivitySeed {
   options: Array<AnswerOption>;
   celebration: string;
   skill: string;
+  /** Overrides the inferred skill when an activity teaches something specific. */
+  skillId?: SkillId;
+  /** Which system renders this item. Config is derived from the seed. */
+  interaction?: InteractionKind;
+  /** Phoneme spellings for a blend sweep, e.g. ["mmmmm", "aaaaa", "t"]. */
+  phonemes?: string[];
+  /** Extra distractor tiles for a word build. */
+  extraTiles?: string[];
+  /** Lines for a read-along, when the item is connected text. */
+  readLines?: string[];
+  /** Beat count for a syllable tap. */
+  syllableCount?: number;
+  /** Baskets and items for a sort. */
+  sortConfig?: SortConfig;
   spokenPrompt?: string;
   spokenHint?: string;
   letters?: string[];
   storyWords?: string[];
 }
 
+/**
+ * Builds the config an activity system needs from what the seed already
+ * carries, so converting an item from tap-one-of-three to a manipulative
+ * system is a one-line change rather than a rewrite.
+ *
+ * `letters` on a blending seed is already the grapheme sequence; `letters` on a
+ * word seed already marks the open slot with "_". Both were previously used
+ * only to draw a decorative picture above the multiple-choice cards.
+ */
+/**
+ * `storyWords` is a flat word list. A read-along wants one line per sentence,
+ * so the child's eye tracks a whole thought rather than a wall of words.
+ */
+function sentencesFrom(words: string[] | undefined, fallback: string): string[] {
+  if (!words || words.length === 0) return [fallback];
+
+  const lines: string[] = [];
+  let current: string[] = [];
+  for (const word of words) {
+    current.push(word);
+    if (/[.!?]$/.test(word)) {
+      lines.push(current.join(" "));
+      current = [];
+    }
+  }
+  if (current.length > 0) lines.push(current.join(" "));
+  return lines;
+}
+
+/**
+ * Turns a first-sound question into a sort.
+ *
+ * "Which of these begins with mmmmm?" asks for one pick out of three, and two
+ * of the three never get thought about. Sorting the same three into "starts
+ * with m" and "does not" asks for a judgement on every one of them, so a
+ * single lucky guess cannot carry the item.
+ */
+function sortFromOptions(seed: ActivitySeed): SortConfig {
+  const correct = seed.options.find((option) => option.correct);
+  const target = (correct?.label[0] ?? "").toLowerCase();
+
+  return {
+    baskets: [
+      { id: "match", label: `Starts with ${target}`, icon: "🧺" },
+      { id: "other", label: "Not this sound", icon: "🍃" },
+    ],
+    items: seed.options.map((option) => ({
+      id: option.id,
+      label: option.label,
+      spokenLabel: option.spokenLabel,
+      icon: option.icon ?? "•",
+      basketId: option.correct ? "match" : "other",
+    })),
+  };
+}
+
+/** How a grapheme should be spoken when a stone is touched. */
+function phonemeFor(grapheme: string): string {
+  const skillId = letterSoundSkill(grapheme.toLowerCase());
+  return skillId ? (getSkill(skillId).phoneme ?? grapheme) : grapheme;
+}
+
+function deriveInteractionConfig(seed: ActivitySeed): Partial<Activity> {
+  const correct = seed.options.find((option) => option.correct);
+  const answer = correct?.label.toLowerCase() ?? "";
+
+  switch (seed.interaction) {
+    case "blend-sweep": {
+      const graphemes = seed.letters ?? [...answer];
+      return {
+        interaction: "blend-sweep",
+        blendSweep: {
+          graphemes,
+          // Say "mmmmm", not the letter name. The stretched spelling lives in
+          // the skills catalogue alongside the correspondence it teaches.
+          phonemes: seed.phonemes ?? graphemes.map(phonemeFor),
+          word: answer,
+        },
+      };
+    }
+
+    case "build": {
+      const pattern = seed.letters ?? [];
+      const openIndex = pattern.indexOf("_");
+      const extras = seed.extraTiles ?? [];
+
+      if (openIndex >= 0) {
+        // Two shapes of seed reach here. Either the options are single letters
+        // ("which vowel goes in the middle?"), so the answer is the letter to
+        // place; or they are whole words ("add c to at"), so the answer is the
+        // finished word and the letter to place sits at the open index.
+        const answerIsWholeWord = answer.length === pattern.length;
+        const slots = pattern.map((letter) =>
+          letter === "_" ? null : letter,
+        );
+        const word = answerIsWholeWord
+          ? answer
+          : pattern.map((letter) => (letter === "_" ? answer : letter)).join("");
+        const tiles = seed.options.map((option) => {
+          const label = option.label.toLowerCase();
+          return answerIsWholeWord ? (label[openIndex] ?? label[0]) : label;
+        });
+
+        return {
+          interaction: "build",
+          build: {
+            word,
+            tiles: Array.from(new Set([...tiles, ...extras])),
+            slots,
+          },
+        };
+      }
+
+      // Nothing marked for the child to fill: build the whole word from tiles.
+      return {
+        interaction: "build",
+        build: {
+          word: answer,
+          tiles: Array.from(new Set([...answer, ...extras])),
+          slots: [...answer].map(() => null),
+        },
+      };
+    }
+
+    case "trace":
+      return { interaction: "trace", trace: { letter: answer } };
+
+    case "syllables":
+      return {
+        interaction: "syllables",
+        syllables: {
+          word: correct?.label ?? "",
+          count: seed.syllableCount ?? 1,
+          icon: correct?.icon,
+        },
+      };
+
+    case "read-along":
+      return {
+        interaction: "read-along",
+        readAlong: {
+          lines: seed.readLines ?? sentencesFrom(seed.storyWords, seed.prompt),
+        },
+      };
+
+    case "sort":
+      return {
+        interaction: "sort",
+        sort: seed.sortConfig ?? sortFromOptions(seed),
+      };
+
+    default:
+      return {};
+  }
+}
+
+const KIND_SKILL: Record<Activity["kind"], SkillId> = {
+  rhyme: "rhyme",
+  sound: "first-sound",
+  letter: "ls-m",
+  blend: "blend-cvc",
+  word: "medial-vowel",
+  story: "story-meaning",
+};
+
+/**
+ * Every activity has to score against exactly one canonical skill, but the
+ * letter activities each teach a *different* correspondence. Rather than
+ * hand-annotating sixty seeds, read the taught grapheme off the correct option
+ * — for a letter activity that option is the grapheme by construction.
+ */
+function inferSkill(seed: ActivitySeed): SkillId {
+  if (seed.skillId) return seed.skillId;
+
+  if (seed.kind === "letter") {
+    const correct = seed.options.find((option) => option.correct);
+    const skill = correct ? letterSoundSkill(correct.label.toLowerCase()) : null;
+    if (skill) return skill;
+  }
+
+  return KIND_SKILL[seed.kind];
+}
+
+/** Retained for tooling that enumerates world lines (e.g. audio pre-generation). */
 export const WORLD_VOICE_LINES: Record<string, VoiceLine> = {};
 
 const INSTRUCTIONS: Record<Activity["kind"], string> = {
@@ -33,6 +238,22 @@ const INSTRUCTIONS: Record<Activity["kind"], string> = {
   blend: "Sweep the sounds together to make a word.",
   word: "Change or build a word with one letter.",
   story: "Read the tiny tale, then answer from the story.",
+};
+
+/**
+ * The on-screen instruction has to describe the interaction the child is
+ * actually looking at. `INSTRUCTIONS` is keyed on the teaching `kind`, which
+ * stopped matching once items moved onto manipulative systems — a sort still
+ * read "listen closely to the sound hiding in each word", which says nothing
+ * about the baskets underneath it.
+ */
+const INTERACTION_INSTRUCTIONS: Partial<Record<InteractionKind, string>> = {
+  sort: "Put each word in the basket where it belongs.",
+  "blend-sweep": "Press the first stone and sweep across without stopping.",
+  build: "Move the letters into place to build the word.",
+  trace: "Trace the letter along the glowing path.",
+  syllables: "Tap the drum once for every beat you hear.",
+  "read-along": "Read the story. Tap any word to hear it again.",
 };
 
 const EYEBROWS: Record<Activity["kind"], string> = {
@@ -46,7 +267,7 @@ const EYEBROWS: Record<Activity["kind"], string> = {
 
 function line(id: string, text: string, mood: VoiceMood) {
   WORLD_VOICE_LINES[id] = { text, mood };
-  return id;
+  return registerVoiceLine(id, text, mood);
 }
 
 function makeActivity(seed: ActivitySeed): Activity {
@@ -90,14 +311,18 @@ function makeActivity(seed: ActivitySeed): Activity {
     kind: seed.kind,
     title: seed.title,
     eyebrow: EYEBROWS[seed.kind],
-    instruction: INSTRUCTIONS[seed.kind],
+    instruction:
+      (seed.interaction && INTERACTION_INSTRUCTIONS[seed.interaction]) ??
+      INSTRUCTIONS[seed.kind],
     prompt: seed.prompt,
     helper: seed.helper,
     options: seed.options,
     celebration: seed.celebration,
     skill: seed.skill,
+    skillId: inferSkill(seed),
     letters: seed.letters,
     storyWords: seed.storyWords,
+    ...deriveInteractionConfig(seed),
     voice: {
       prompt: promptId,
       hints: [hintOneId, hintTwoId],
@@ -251,6 +476,7 @@ export const ADVENTURES: Adventure[] = [
         key: "detective-moon",
         regionId: "sound-safari",
         kind: "sound",
+        interaction: "sort",
         title: "Moon Clue",
         prompt: "Moon begins with mmmmm. What else begins the same way?",
         helper: "Close your lips and hum the first sound.",
@@ -263,6 +489,7 @@ export const ADVENTURES: Adventure[] = [
         key: "detective-sun",
         regionId: "sound-safari",
         kind: "sound",
+        interaction: "sort",
         title: "Sunny Clue",
         prompt: "Sun begins with sssss. What else begins the same way?",
         helper: "Use a quiet snake sound: sssss.",
@@ -275,6 +502,7 @@ export const ADVENTURES: Adventure[] = [
         key: "detective-fish",
         regionId: "sound-safari",
         kind: "sound",
+        interaction: "sort",
         title: "Fishy Clue",
         prompt: "Fish begins with fffff. What else begins the same way?",
         helper: "Let the air brush your lip: fffff.",
@@ -355,6 +583,7 @@ export const ADVENTURES: Adventure[] = [
         key: "moon-mouse-picture",
         regionId: "letter-lanterns",
         kind: "sound",
+        interaction: "sort",
         title: "Moon Mouse’s Snack",
         prompt: "Which snack begins with mmmmm?",
         helper: "Hum the beginning: mmmmmuffin.",
@@ -367,6 +596,7 @@ export const ADVENTURES: Adventure[] = [
         key: "moon-mouse-match",
         regionId: "letter-lanterns",
         kind: "letter",
+        interaction: "trace",
         title: "Lantern Row",
         prompt: "Tap lowercase m one more time.",
         helper: "Find the letter with a downstroke and two humps.",
@@ -405,6 +635,7 @@ export const ADVENTURES: Adventure[] = [
         key: "snake-secret-sun",
         regionId: "letter-lanterns",
         kind: "sound",
+        interaction: "sort",
         title: "Sunbeam Clue",
         prompt: "Which picture begins with sssss?",
         helper: "Whisper each beginning and listen for the snake sound.",
@@ -417,6 +648,7 @@ export const ADVENTURES: Adventure[] = [
         key: "snake-secret-sort",
         regionId: "letter-lanterns",
         kind: "sound",
+        interaction: "sort",
         title: "Secret Basket",
         prompt: "Which word does not begin with sssss?",
         helper: "Sock and star begin with sssss. Listen for the different one.",
@@ -440,6 +672,7 @@ export const ADVENTURES: Adventure[] = [
         key: "tapping-t-letter",
         regionId: "letter-lanterns",
         kind: "letter",
+        interaction: "trace",
         title: "Tapping Lantern",
         prompt: "Which lowercase letter makes the quick tapping sound t?",
         helper: "Look for the tall line wearing a little crossbar.",
@@ -453,6 +686,7 @@ export const ADVENTURES: Adventure[] = [
         key: "tapping-t-top",
         regionId: "letter-lanterns",
         kind: "sound",
+        interaction: "sort",
         title: "Spinning Top",
         prompt: "Which picture begins with the quick t sound?",
         helper: "Say each name. Top begins with t.",
@@ -465,6 +699,7 @@ export const ADVENTURES: Adventure[] = [
         key: "tapping-t-finish",
         regionId: "letter-lanterns",
         kind: "sound",
+        interaction: "sort",
         title: "Last Tap",
         prompt: "Which word ends with the quick t sound?",
         helper: "Say cat slowly and listen to its last sound.",
@@ -501,6 +736,7 @@ export const ADVENTURES: Adventure[] = [
         key: "vowel-fireflies-i",
         regionId: "letter-lanterns",
         kind: "letter",
+        interaction: "trace",
         title: "Itty-Bitty Glow",
         prompt: "Which lowercase vowel makes the middle sound in sit?",
         helper: "Stretch sit: sssss-ih-t.",
@@ -514,6 +750,7 @@ export const ADVENTURES: Adventure[] = [
         key: "vowel-fireflies-o",
         regionId: "letter-lanterns",
         kind: "letter",
+        interaction: "trace",
         title: "Otter Glow",
         prompt: "Which lowercase vowel makes the middle sound in log?",
         helper: "Stretch log: lll-ooo-g.",
@@ -538,6 +775,7 @@ export const ADVENTURES: Adventure[] = [
         key: "mat-crossing-mat",
         regionId: "blend-bridge",
         kind: "blend",
+        interaction: "blend-sweep",
         title: "First Stones",
         prompt: "Sweep m, a, t together. Which word do they make?",
         helper: "Keep the sounds touching: mmmmm-aaaaa-t. Mat.",
@@ -551,6 +789,7 @@ export const ADVENTURES: Adventure[] = [
         key: "mat-crossing-map",
         regionId: "blend-bridge",
         kind: "blend",
+        interaction: "blend-sweep",
         title: "Map Stones",
         prompt: "Sweep m, a, p together. Which word do they make?",
         helper: "Blend without gaps: mmmmm-aaaaa-p. Map.",
@@ -564,6 +803,7 @@ export const ADVENTURES: Adventure[] = [
         key: "mat-crossing-sat",
         regionId: "blend-bridge",
         kind: "blend",
+        interaction: "blend-sweep",
         title: "Far Bank",
         prompt: "Sweep s, a, t together. Which word do they make?",
         helper: "Blend smoothly: sssss-aaaaa-t. Sat.",
@@ -588,6 +828,7 @@ export const ADVENTURES: Adventure[] = [
         key: "sun-sail-sun",
         regionId: "blend-bridge",
         kind: "blend",
+        interaction: "blend-sweep",
         title: "Raise the Sail",
         prompt: "Sweep s, u, n together. What word?",
         helper: "Keep it smooth: sssss-uh-n. Sun.",
@@ -601,6 +842,7 @@ export const ADVENTURES: Adventure[] = [
         key: "sun-sail-run",
         regionId: "blend-bridge",
         kind: "blend",
+        interaction: "blend-sweep",
         title: "Catch the Breeze",
         prompt: "Sweep r, u, n together. What word?",
         helper: "Keep it connected: rrrr-uh-n. Run.",
@@ -614,6 +856,7 @@ export const ADVENTURES: Adventure[] = [
         key: "sun-sail-fun",
         regionId: "blend-bridge",
         kind: "blend",
+        interaction: "blend-sweep",
         title: "Island Word",
         prompt: "Sweep f, u, n together. What word?",
         helper: "Blend it: fffff-uh-n. Fun.",
@@ -638,6 +881,7 @@ export const ADVENTURES: Adventure[] = [
         key: "frog-ferry-log",
         regionId: "blend-bridge",
         kind: "blend",
+        interaction: "blend-sweep",
         title: "Log Landing",
         prompt: "Sweep l, o, g together. What word?",
         helper: "Blend: lll-ooo-g. Log.",
@@ -651,6 +895,7 @@ export const ADVENTURES: Adventure[] = [
         key: "frog-ferry-hop",
         regionId: "blend-bridge",
         kind: "blend",
+        interaction: "blend-sweep",
         title: "Hop Aboard",
         prompt: "Sweep h, o, p together. What word?",
         helper: "Blend: hhh-ooo-p. Hop.",
@@ -664,6 +909,7 @@ export const ADVENTURES: Adventure[] = [
         key: "frog-ferry-fog",
         regionId: "blend-bridge",
         kind: "blend",
+        interaction: "blend-sweep",
         title: "Fog Bell",
         prompt: "Sweep f, o, g together. What word?",
         helper: "Blend: fffff-ooo-g. Fog.",
@@ -688,6 +934,7 @@ export const ADVENTURES: Adventure[] = [
         key: "brook-band-red",
         regionId: "blend-bridge",
         kind: "blend",
+        interaction: "blend-sweep",
         title: "Red Drum",
         prompt: "Sweep r, e, d together. What word?",
         helper: "Blend: rrr-eh-d. Red.",
@@ -701,6 +948,7 @@ export const ADVENTURES: Adventure[] = [
         key: "brook-band-bed",
         regionId: "blend-bridge",
         kind: "blend",
+        interaction: "blend-sweep",
         title: "Bed Bell",
         prompt: "Sweep b, e, d together. What word?",
         helper: "Blend: bbb-eh-d. Bed.",
@@ -714,6 +962,7 @@ export const ADVENTURES: Adventure[] = [
         key: "brook-band-dog",
         regionId: "blend-bridge",
         kind: "blend",
+        interaction: "blend-sweep",
         title: "Dog Dance",
         prompt: "Sweep d, o, g together. What word?",
         helper: "Blend: ddd-ooo-g. Dog.",
@@ -738,6 +987,7 @@ export const ADVENTURES: Adventure[] = [
         key: "word-sprouts-sit",
         regionId: "word-garden",
         kind: "word",
+        interaction: "build",
         title: "Sat to Sit",
         prompt: "Change sat into sit. Which vowel belongs in the middle?",
         helper: "Stretch sit: sssss-ih-t. Listen to the middle.",
@@ -751,6 +1001,7 @@ export const ADVENTURES: Adventure[] = [
         key: "word-sprouts-cat",
         regionId: "word-garden",
         kind: "word",
+        interaction: "build",
         title: "Mat to Cat",
         prompt: "Change mat into cat. Which letter belongs first?",
         helper: "Cat begins with a sharp kuh sound.",
@@ -764,6 +1015,7 @@ export const ADVENTURES: Adventure[] = [
         key: "word-sprouts-map",
         regionId: "word-garden",
         kind: "word",
+        interaction: "build",
         title: "Mat to Map",
         prompt: "Change mat into map. Which letter belongs last?",
         helper: "Map ends with a popping p sound.",
@@ -788,6 +1040,7 @@ export const ADVENTURES: Adventure[] = [
         key: "rhyming-beds-cat",
         regionId: "word-garden",
         kind: "word",
+        interaction: "build",
         title: "The At Bed",
         prompt: "Add c to at. What word grows?",
         helper: "Blend c with at: c-at.",
@@ -795,12 +1048,13 @@ export const ADVENTURES: Adventure[] = [
         options: [option("cat", "Cat", "🐈", true), option("sun", "Sun", "☀️"), option("log", "Log", "🪵")],
         celebration: "Cat grew in the at flowerbed.",
         skill: "Word family at",
-        letters: ["c", "a", "t"],
+        letters: ["_", "a", "t"],
       },
       {
         key: "rhyming-beds-run",
         regionId: "word-garden",
         kind: "word",
+        interaction: "build",
         title: "The Un Bed",
         prompt: "Add r to un. What word grows?",
         helper: "Blend r with un: r-un.",
@@ -808,12 +1062,13 @@ export const ADVENTURES: Adventure[] = [
         options: [option("run", "Run", "🏃", true), option("red", "Red", "🔴"), option("rat", "Rat", "🐀")],
         celebration: "Run grew in the un flowerbed.",
         skill: "Word family un",
-        letters: ["r", "u", "n"],
+        letters: ["_", "u", "n"],
       },
       {
         key: "rhyming-beds-dog",
         regionId: "word-garden",
         kind: "word",
+        interaction: "build",
         title: "The Og Bed",
         prompt: "Add d to og. What word grows?",
         helper: "Blend d with og: d-og.",
@@ -821,7 +1076,7 @@ export const ADVENTURES: Adventure[] = [
         options: [option("dog", "Dog", "🐕", true), option("dig", "Dig", "⛏️"), option("dot", "Dot", "⚫")],
         celebration: "Dog grew in the og flowerbed.",
         skill: "Word family og",
-        letters: ["d", "o", "g"],
+        letters: ["_", "o", "g"],
       },
     ],
   ),
@@ -838,6 +1093,7 @@ export const ADVENTURES: Adventure[] = [
         key: "vowel-vines-map",
         regionId: "word-garden",
         kind: "word",
+        interaction: "build",
         title: "Map Vine",
         prompt: "Complete m_p to make map.",
         helper: "Map has the open a sound in the middle.",
@@ -851,6 +1107,7 @@ export const ADVENTURES: Adventure[] = [
         key: "vowel-vines-red",
         regionId: "word-garden",
         kind: "word",
+        interaction: "build",
         title: "Red Vine",
         prompt: "Complete r_d to make red.",
         helper: "Red has the quick eh sound in the middle.",
@@ -864,6 +1121,7 @@ export const ADVENTURES: Adventure[] = [
         key: "vowel-vines-hop",
         regionId: "word-garden",
         kind: "word",
+        interaction: "build",
         title: "Hop Vine",
         prompt: "Complete h_p to make hop.",
         helper: "Hop has the round o sound in the middle.",
@@ -935,6 +1193,8 @@ export const ADVENTURES: Adventure[] = [
         key: "sam-cat-read",
         regionId: "story-stage",
         kind: "story",
+        interaction: "read-along",
+        skillId: "connected-text",
         title: "Curtain One",
         prompt: "Sam sat. A cat sat with Sam. Who sat with Sam?",
         helper: "The second sentence names the animal.",
@@ -985,6 +1245,8 @@ export const ADVENTURES: Adventure[] = [
         key: "fox-box-who",
         regionId: "story-stage",
         kind: "story",
+        interaction: "read-along",
+        skillId: "connected-text",
         title: "The Giggling Box",
         prompt: "A box sat on a log. A fox hid in the box. Who hid inside?",
         helper: "The second sentence tells who hid.",
@@ -1033,6 +1295,8 @@ export const ADVENTURES: Adventure[] = [
         key: "red-hat-owner",
         regionId: "story-stage",
         kind: "story",
+        interaction: "read-along",
+        skillId: "connected-text",
         title: "Windy Opening",
         prompt: "Meg had a red hat. The hat fell in the mud. Who owned the hat?",
         helper: "The first sentence tells us who had it.",
@@ -1082,6 +1346,8 @@ export const ADVENTURES: Adventure[] = [
         key: "moon-picnic-pack",
         regionId: "story-stage",
         kind: "story",
+        interaction: "read-along",
+        skillId: "connected-text",
         title: "Pack the Picnic",
         prompt: "Pip had a map and a red cup. He sat by the moonlit pond. What did Pip have?",
         helper: "The first sentence names two things.",
@@ -1180,6 +1446,9 @@ export const GARDEN_PLANTS = [
   { id: "story-tree", name: "Story Tree", icon: "🌳", cost: 2 },
   { id: "vowel-vine", name: "Vowel Vine", icon: "🌿", cost: 1 },
   { id: "firefly-fern", name: "Firefly Fern", icon: "✨", cost: 1 },
+  // Earned inside "Moon Mouse and the Lost Lantern" rather than bought with
+  // seeds, so the garden carries a trace of the story that put it there.
+  { id: "lantern-seed", name: "Mo’s Lantern Seed", icon: "🏮", cost: 0 },
 ];
 
 export function adventuresForRegion(regionId: ZoneId) {
@@ -1190,12 +1459,3 @@ export function getAdventure(adventureId: string) {
   return ADVENTURES.find((adventure) => adventure.id === adventureId);
 }
 
-export function getDailyAdventure(completedAdventureIds: string[]) {
-  const available = ADVENTURES.filter((adventure) => {
-    const regionAdventures = adventuresForRegion(adventure.regionId);
-    const previous = regionAdventures[adventure.chapter - 2];
-    return !previous || completedAdventureIds.includes(previous.id);
-  });
-  const day = Math.floor(Date.now() / 86_400_000);
-  return available[day % available.length] ?? ADVENTURES[0];
-}

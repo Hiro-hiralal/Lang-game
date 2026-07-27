@@ -13,12 +13,23 @@ import {
   Sparkles,
 } from "lucide-react";
 import { PipGuide } from "@/components/pip-guide";
+import { getEpisodeForAdventure } from "@/lib/episodes/moon-mouse";
 import { ZONES } from "@/lib/game-data";
-import { adventuresForRegion, getDailyAdventure } from "@/lib/world-data";
-import type { PlayerProgress, ZoneId } from "@/lib/game-types";
+import {
+  REGION_HEALTH_LABEL,
+  regionHealth,
+} from "@/lib/pip-reactions";
+import type { MasteryMap } from "@/lib/learning/types";
+import { ADVENTURES } from "@/lib/world-data";
+import { adventuresForRegion } from "@/lib/world-data";
+import type { Adventure, PlayerProgress, ZoneId } from "@/lib/game-types";
 
 interface GardenMapProps {
   progress: PlayerProgress;
+  /** Chosen by the session composer from this child's mastery, not the date. */
+  dailyAdventure: Adventure;
+  /** Drives how alive each region looks. */
+  mastery: MasteryMap;
   onStart: (adventureId: string) => void;
   onOpenRegion: (regionId: ZoneId) => void;
   onOpenGarden: () => void;
@@ -30,6 +41,8 @@ interface GardenMapProps {
 
 export function GardenMap({
   progress,
+  dailyAdventure,
+  mastery,
   onStart,
   onOpenRegion,
   onOpenGarden,
@@ -38,8 +51,10 @@ export function GardenMap({
   onSpeak,
   isSpeaking,
 }: GardenMapProps) {
-  const dailyAdventure = getDailyAdventure(progress.completedAdventureIds);
-  const totalAdventures = 20;
+  const totalAdventures = ADVENTURES.length;
+  // A chapter built as a full episode advertises its own title and length
+  // here too, not the shorter chapter it replaced.
+  const dailyEpisode = getEpisodeForAdventure(dailyAdventure.id);
   const storiesUnlocked = progress.completedAdventureIds.filter((id) =>
     ["moon-mouse", "rhyme-river", "sam-and-cat", "red-hat", "moon-picnic", "sun-sail", "frog-ferry", "word-sprouts", "vowel-vines", "echo-festival"].includes(id),
   ).length;
@@ -78,11 +93,13 @@ export function GardenMap({
           >
             <div className="daily-quest__top">
               <span><Sparkles /> Pip’s daily quest</span>
-              <small><Clock3 /> {dailyAdventure.minutes} min</small>
+              <small>
+                <Clock3 /> {dailyEpisode?.minutes ?? dailyAdventure.minutes} min
+              </small>
             </div>
             <p>Chapter {dailyAdventure.chapter} · {ZONES.find((zone) => zone.id === dailyAdventure.regionId)?.name}</p>
-            <h2>{dailyAdventure.title}</h2>
-            <p>{dailyAdventure.description}</p>
+            <h2>{dailyEpisode?.title ?? dailyAdventure.title}</h2>
+            <p>{dailyEpisode?.subtitle ?? dailyAdventure.description}</p>
             <button className="primary-button" onClick={() => onStart(dailyAdventure.id)}>
               Start quest <ArrowRight />
             </button>
@@ -128,9 +145,19 @@ export function GardenMap({
             const completed = regionAdventures.filter((adventure) =>
               progress.completedAdventureIds.includes(adventure.id),
             ).length;
+            // A region recovers as its skills mature, not as chapters are
+            // clicked through. Replaying a chapter cannot make it bloom.
+            const regionSkills = Array.from(
+              new Set(
+                regionAdventures.flatMap((adventure) =>
+                  adventure.activities.map((activity) => activity.skillId),
+                ),
+              ),
+            );
+            const { health, secure } = regionHealth(regionSkills, mastery);
             return (
               <motion.button
-                className="world-region-card"
+                className={`world-region-card world-region-card--${health}`}
                 key={zone.id}
                 onClick={() => onOpenRegion(zone.id)}
                 initial={{ opacity: 0, y: 18 }}
@@ -152,8 +179,12 @@ export function GardenMap({
                   <span>{zone.description}</span>
                 </span>
                 <span className="world-region-card__progress">
-                  {completed === 4 ? <Check /> : <Sparkles />}
-                  {completed} of 4 complete
+                  {health === "blooming" ? <Check /> : <Sparkles />}
+                  {REGION_HEALTH_LABEL[health]}
+                  <small>
+                    {completed} of {regionAdventures.length} chapters ·{" "}
+                    {secure} of {regionSkills.length} skills secure
+                  </small>
                 </span>
               </motion.button>
             );

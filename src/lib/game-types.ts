@@ -1,8 +1,20 @@
+import type {
+  BlendSweepConfig,
+  BuildConfig,
+  InteractionKind,
+  ReadAlongConfig,
+  SortConfig,
+  SyllablesConfig,
+  TraceConfig,
+} from "@/lib/activity-types";
+import type { SkillId } from "@/lib/learning/skills";
+
 export type Screen =
   | "welcome"
   | "map"
   | "region"
   | "session"
+  | "episode"
   | "garden"
   | "stories"
   | "collection"
@@ -78,11 +90,22 @@ export interface Activity {
   helper: string;
   options: AnswerOption[];
   celebration: string;
+  /** Child-facing label for the skill chip. Display only. */
   skill: string;
+  /** Canonical skill this activity scores against. Drives mastery and the composer. */
+  skillId: SkillId;
   voice: ActivityVoice;
   bubble: ActivityBubble;
   letters?: string[];
   storyWords?: string[];
+  /** Which activity system renders this item. Defaults to "choice". */
+  interaction?: InteractionKind;
+  sort?: SortConfig;
+  blendSweep?: BlendSweepConfig;
+  trace?: TraceConfig;
+  build?: BuildConfig;
+  syllables?: SyllablesConfig;
+  readAlong?: ReadAlongConfig;
 }
 
 export interface Adventure {
