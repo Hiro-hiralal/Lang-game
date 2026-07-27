@@ -11,5 +11,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
+    // e2e/ is Playwright's; Vitest must not try to collect it.
+    exclude: ["e2e/**", "node_modules/**"],
   },
 });
