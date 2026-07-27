@@ -1,3 +1,12 @@
+import type {
+  BlendSweepConfig,
+  BuildConfig,
+  InteractionKind,
+  ReadAlongConfig,
+  SortConfig,
+  SyllablesConfig,
+  TraceConfig,
+} from "@/lib/activity-types";
 import type { SkillId } from "@/lib/learning/skills";
 
 export type Screen =
@@ -88,6 +97,14 @@ export interface Activity {
   bubble: ActivityBubble;
   letters?: string[];
   storyWords?: string[];
+  /** Which activity system renders this item. Defaults to "choice". */
+  interaction?: InteractionKind;
+  sort?: SortConfig;
+  blendSweep?: BlendSweepConfig;
+  trace?: TraceConfig;
+  build?: BuildConfig;
+  syllables?: SyllablesConfig;
+  readAlong?: ReadAlongConfig;
 }
 
 export interface Adventure {

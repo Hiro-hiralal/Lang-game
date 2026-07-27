@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import confetti from "canvas-confetti";
 import { AnimatePresence, motion } from "motion/react";
@@ -14,19 +14,19 @@ import {
   Volume2,
   X,
 } from "lucide-react";
+import { ActivityView } from "@/components/activities";
 import { PipGuide } from "@/components/pip-guide";
 import type { Narrator } from "@/hooks/use-narrator";
 import type { AttemptInput } from "@/hooks/use-learning-record";
 import { ZONES } from "@/lib/game-data";
 import {
-  hidesPicturesUntilAnswered,
   hintStep,
   isAssisted,
-  narrowOptions,
   nextHintLevel,
   type HintLevel,
 } from "@/lib/learning/hint-ladder";
-import type { Activity, Adventure, AnswerOption } from "@/lib/game-types";
+import { interactionOf, type ActivityResult } from "@/lib/activity-types";
+import type { Activity, Adventure } from "@/lib/game-types";
 
 interface GameSessionProps {
   childName: string;
@@ -50,10 +50,9 @@ export function GameSession({
   onAttempt,
 }: GameSessionProps) {
   const [index, setIndex] = useState(0);
-  const [selected, setSelected] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<"correct" | "try-again" | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
-  const [triedIds, setTriedIds] = useState<string[]>([]);
+  const [misses, setMisses] = useState(0);
   const [hintLevel, setHintLevel] = useState<HintLevel>(0);
   const [completed, setCompleted] = useState(false);
   const retryTimer = useRef<number | null>(null);
@@ -70,16 +69,6 @@ export function GameSession({
 
   // The answer is only ever drawn once the child has produced it.
   const revealed = answered;
-  const showPictures =
-    revealed || !hidesPicturesUntilAnswered(activity.kind);
-
-  const visibleOptions = useMemo(
-    () =>
-      isAssisted(hintLevel) && !answered
-        ? narrowOptions(activity.options, triedIds)
-        : activity.options,
-    [activity.options, answered, hintLevel, triedIds],
-  );
 
   useEffect(() => {
     const next = activities[index + 1];
@@ -98,33 +87,37 @@ export function GameSession({
     [stop],
   );
 
-  const chooseAnswer = (option: AnswerOption) => {
+  /**
+   * Every activity system reports its outcome here. The shell owns the hint
+   * ladder, narration and the attempt log; a system only has to say whether the
+   * child got it and how they answered.
+   */
+  const handleAnswer = (result: ActivityResult) => {
     if (answered) return;
-    setSelected(option.id);
     playSound("tap");
 
-    const expectedId = activity.options.find((entry) => entry.correct)?.id;
-    // Runs only from an onClick gesture, never during render.
-    // eslint-disable-next-line react-hooks/purity
+    // Runs only from a user gesture, never during render.
     const latencyMs = Date.now() - itemStartedAt.current;
 
-    if (option.correct) {
+    onAttempt({
+      itemId: activity.key,
+      skillId: activity.skillId,
+      correct: result.correct,
+      hintLevel,
+      retries: misses,
+      // A success reached only after the ladder narrowed the field is recorded
+      // as assisted, and can never contribute to mastery.
+      mode: isAssisted(hintLevel) ? "assisted" : result.mode,
+      latencyMs,
+      chosenId: result.chosenId,
+      expectedId: result.expectedId,
+    });
+
+    if (result.correct) {
       setFeedback("correct");
       setFeedbackMessage(activity.bubble.correct);
       playSound("correct");
       speak(activity.voice.correct, activity.celebration);
-
-      onAttempt({
-        itemId: activity.key,
-        skillId: activity.skillId,
-        correct: true,
-        hintLevel,
-        retries: triedIds.length,
-        // A success reached only after the ladder narrowed the field is
-        // recorded as assisted, and can never contribute to mastery.
-        mode: isAssisted(hintLevel) ? "assisted" : "tap",
-        latencyMs,
-      });
 
       if (!reducedMotion) {
         void confetti({
@@ -139,36 +132,27 @@ export function GameSession({
       return;
     }
 
-    // A wrong answer climbs one rung and gives targeted feedback, but the
-    // option stays live: the child still has to choose the right one.
+    // A miss climbs one rung and gives targeted feedback where the content has
+    // it, but nothing is taken away: the child still has to produce the answer.
     const raised = nextHintLevel(hintLevel);
     const step = hintStep(activity, raised);
-    const message = activity.bubble.wrong[option.id] ?? step.message;
-    const voiceLine = activity.voice.wrong[option.id] ?? step.voiceId;
+    const targeted = result.chosenId
+      ? activity.bubble.wrong[result.chosenId]
+      : undefined;
+    const targetedVoice = result.chosenId
+      ? activity.voice.wrong[result.chosenId]
+      : undefined;
+    const message = targeted ?? step.message;
+    const voiceLine = targetedVoice ?? step.voiceId;
 
     setFeedback("try-again");
     setHintLevel(raised);
     setFeedbackMessage(message);
-    setTriedIds((current) =>
-      current.includes(option.id) ? current : [...current, option.id],
-    );
+    setMisses((current) => current + 1);
     playSound("try-again");
     speak(voiceLine, message);
 
-    onAttempt({
-      itemId: activity.key,
-      skillId: activity.skillId,
-      correct: false,
-      hintLevel,
-      retries: triedIds.length,
-      mode: isAssisted(hintLevel) ? "assisted" : "tap",
-      latencyMs,
-      chosenId: option.id,
-      expectedId,
-    });
-
     retryTimer.current = window.setTimeout(() => {
-      setSelected(null);
       setFeedback(null);
       setFeedbackMessage(null);
     }, 1650);
@@ -197,10 +181,9 @@ export function GameSession({
     const nextIndex = index + 1;
     const nextActivity = activities[nextIndex];
     setIndex(nextIndex);
-    setSelected(null);
     setFeedback(null);
     setFeedbackMessage(null);
-    setTriedIds([]);
+    setMisses(0);
     setHintLevel(0);
     playSound("tap");
     speak(nextActivity.voice.prompt, nextActivity.bubble.prompt);
@@ -293,49 +276,27 @@ export function GameSession({
             isSpeaking={isSpeaking}
           />
 
-          <ActivityVisual
+          {/*
+            `choice` items keep the scene-setting visual above their options.
+            The other systems are the visual — the child manipulates the scene
+            itself rather than looking at it and picking from a list below.
+          */}
+          {interactionOf(activity) === "choice" && (
+            <ActivityVisual
+              activity={activity}
+              reducedMotion={reducedMotion}
+              revealed={revealed}
+            />
+          )}
+
+          <ActivityView
             activity={activity}
             reducedMotion={reducedMotion}
-            revealed={revealed}
+            answered={answered}
+            hintLevel={hintLevel}
+            onAnswer={handleAnswer}
+            speak={speak}
           />
-
-          <div className={`answer-grid answer-grid--${activity.kind}`}>
-            {visibleOptions.map((option) => {
-              const isSelected = selected === option.id;
-              const state =
-                isSelected && feedback === "correct"
-                  ? "correct"
-                  : isSelected && feedback === "try-again"
-                    ? "wrong"
-                    : "";
-              return (
-                <motion.button
-                  key={option.id}
-                  className={`answer-card ${state ? `answer-card--${state}` : ""}`}
-                  onClick={() => chooseAnswer(option)}
-                  disabled={answered}
-                  whileHover={reducedMotion ? {} : { y: -4, scale: 1.015 }}
-                  whileTap={{ scale: 0.97 }}
-                  animate={
-                    state === "wrong" && !reducedMotion
-                      ? { x: [0, -8, 7, -4, 0] }
-                      : {}
-                  }
-                  aria-label={option.spokenLabel}
-                >
-                  {option.icon && showPictures && (
-                    <span className="answer-card__icon" aria-hidden="true">
-                      {option.icon}
-                    </span>
-                  )}
-                  <strong>{option.label}</strong>
-                  <span className="answer-card__state" aria-hidden="true">
-                    {state === "correct" ? <Check /> : state === "wrong" ? <X /> : null}
-                  </span>
-                </motion.button>
-              );
-            })}
-          </div>
 
           <div className="activity-footer">
             <button className="hint-button" onClick={showHint} disabled={answered}>
