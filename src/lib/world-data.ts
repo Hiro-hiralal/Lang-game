@@ -6,7 +6,9 @@ import type {
   Sticker,
   ZoneId,
 } from "@/lib/game-types";
-import type { VoiceLine, VoiceMood } from "@/lib/voice-lines";
+import { letterSoundSkill, type SkillId } from "@/lib/learning/skills";
+import type { VoiceLine, VoiceMood } from "@/lib/narration-registry";
+import { registerVoiceLine } from "@/lib/narration-registry";
 
 interface ActivitySeed {
   key: string;
@@ -18,12 +20,42 @@ interface ActivitySeed {
   options: Array<AnswerOption>;
   celebration: string;
   skill: string;
+  /** Overrides the inferred skill when an activity teaches something specific. */
+  skillId?: SkillId;
   spokenPrompt?: string;
   spokenHint?: string;
   letters?: string[];
   storyWords?: string[];
 }
 
+const KIND_SKILL: Record<Activity["kind"], SkillId> = {
+  rhyme: "rhyme",
+  sound: "first-sound",
+  letter: "ls-m",
+  blend: "blend-cvc",
+  word: "medial-vowel",
+  story: "story-meaning",
+};
+
+/**
+ * Every activity has to score against exactly one canonical skill, but the
+ * letter activities each teach a *different* correspondence. Rather than
+ * hand-annotating sixty seeds, read the taught grapheme off the correct option
+ * — for a letter activity that option is the grapheme by construction.
+ */
+function inferSkill(seed: ActivitySeed): SkillId {
+  if (seed.skillId) return seed.skillId;
+
+  if (seed.kind === "letter") {
+    const correct = seed.options.find((option) => option.correct);
+    const skill = correct ? letterSoundSkill(correct.label.toLowerCase()) : null;
+    if (skill) return skill;
+  }
+
+  return KIND_SKILL[seed.kind];
+}
+
+/** Retained for tooling that enumerates world lines (e.g. audio pre-generation). */
 export const WORLD_VOICE_LINES: Record<string, VoiceLine> = {};
 
 const INSTRUCTIONS: Record<Activity["kind"], string> = {
@@ -46,7 +78,7 @@ const EYEBROWS: Record<Activity["kind"], string> = {
 
 function line(id: string, text: string, mood: VoiceMood) {
   WORLD_VOICE_LINES[id] = { text, mood };
-  return id;
+  return registerVoiceLine(id, text, mood);
 }
 
 function makeActivity(seed: ActivitySeed): Activity {
@@ -96,6 +128,7 @@ function makeActivity(seed: ActivitySeed): Activity {
     options: seed.options,
     celebration: seed.celebration,
     skill: seed.skill,
+    skillId: inferSkill(seed),
     letters: seed.letters,
     storyWords: seed.storyWords,
     voice: {

@@ -11,8 +11,12 @@ import { RegionScreen } from "@/components/region-screen";
 import { StoryLibrary } from "@/components/story-library";
 import { TopBar } from "@/components/top-bar";
 import { WelcomeScreen } from "@/components/welcome-screen";
+import { useLearningRecord } from "@/hooks/use-learning-record";
 import { useNarrator } from "@/hooks/use-narrator";
-import { usePersistentProgress } from "@/hooks/use-persistent-progress";
+import {
+  nextStreak,
+  usePersistentProgress,
+} from "@/hooks/use-persistent-progress";
 import { useSoundscape } from "@/hooks/use-soundscape";
 import {
   ADVENTURES,
@@ -35,6 +39,7 @@ export function StorySproutsApp() {
   );
   const [worldToast, setWorldToast] = useState<string | null>(null);
   const { progress, updateProgress, resetProgress } = usePersistentProgress();
+  const learning = useLearningRecord();
   const narrator = useNarrator(progress.soundOn);
   const soundscape = useSoundscape(progress.soundOn);
 
@@ -57,18 +62,26 @@ export function StorySproutsApp() {
     setSelectedRegion(adventure.regionId);
     setWorldToast(null);
     soundscape.start();
+    learning.beginSession(adventure.id);
     navigate("session");
     const first = adventure.activities[0];
     narrator.speak(first.voice.prompt, first.bubble.prompt);
+  };
+
+  const leaveAdventure = () => {
+    learning.finishSession(false);
+    navigate("region");
   };
 
   const completeAdventure = () => {
     const alreadyCompleted = progress.completedAdventureIds.includes(
       activeAdventure.id,
     );
+    learning.finishSession(true);
     updateProgress((current) => ({
       ...current,
       sessionsCompleted: current.sessionsCompleted + 1,
+      streak: nextStreak(current.lastPlayed, current.streak, new Date()),
       seeds: current.seeds + 1,
       gardenLevel: Math.min(current.gardenLevel + (alreadyCompleted ? 0 : 1), 8),
       masteredWords: Array.from(
@@ -150,6 +163,7 @@ export function StorySproutsApp() {
     );
     if (!confirmed) return;
     resetProgress();
+    learning.clearRecord();
     setWorldToast(null);
     navigate("welcome");
   };
@@ -240,8 +254,9 @@ export function StorySproutsApp() {
               reducedMotion={progress.reducedMotion}
               narrator={narrator}
               playSound={soundscape.play}
-              onExit={() => navigate("region")}
+              onExit={leaveAdventure}
               onComplete={completeAdventure}
+              onAttempt={learning.recordAttempt}
             />
           )}
 

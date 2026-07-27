@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getVoiceLine, type VoiceMood } from "@/lib/voice-lines";
+import { getVoiceLine, type VoiceMood } from "@/lib/narration";
 
 export const runtime = "nodejs";
 

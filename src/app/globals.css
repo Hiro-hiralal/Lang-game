@@ -1189,6 +1189,24 @@ a:focus-visible {
   bottom: 18px;
 }
 
+/*
+ * The unlit state. The lantern holds no letter until the child has answered,
+ * so the activity cannot be solved by copying the shape on screen.
+ */
+.letter-lantern--dark {
+  background: radial-gradient(circle at 50% 35%, #d3c8b2, #ab9c80 58%, #8d7f68);
+  border-color: #6f5c3c;
+  color: #5d5140;
+  box-shadow:
+    inset 0 0 26px rgba(255, 255, 255, 0.28),
+    0 14px 28px rgba(80, 68, 41, 0.18);
+}
+
+.letter-lantern__listen {
+  font-size: 3.4rem;
+  opacity: 0.6;
+}
+
 .lantern-glow {
   position: absolute;
   width: 230px;

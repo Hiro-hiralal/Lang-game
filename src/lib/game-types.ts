@@ -1,3 +1,5 @@
+import type { SkillId } from "@/lib/learning/skills";
+
 export type Screen =
   | "welcome"
   | "map"
@@ -78,7 +80,10 @@ export interface Activity {
   helper: string;
   options: AnswerOption[];
   celebration: string;
+  /** Child-facing label for the skill chip. Display only. */
   skill: string;
+  /** Canonical skill this activity scores against. Drives mastery and the composer. */
+  skillId: SkillId;
   voice: ActivityVoice;
   bubble: ActivityBubble;
   letters?: string[];

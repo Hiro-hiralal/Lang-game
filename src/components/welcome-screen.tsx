@@ -79,9 +79,15 @@ export function WelcomeScreen({
               />
             </div>
             <div>
-              <span>Welcome back, {childName}</span>
+              <span>
+                {sessionsCompleted === 0
+                  ? "Hello! Pip has been waiting"
+                  : `Welcome back, ${childName}`}
+              </span>
               <small>
-                {sessionsCompleted} adventures complete · Pip saved your place
+                {sessionsCompleted === 0
+                  ? "Your very first adventure is ready"
+                  : `${sessionsCompleted} adventures complete · Pip saved your place`}
               </small>
             </div>
             {soundOn && (

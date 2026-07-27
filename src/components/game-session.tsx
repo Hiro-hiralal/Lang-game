@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import confetti from "canvas-confetti";
 import { AnimatePresence, motion } from "motion/react";
@@ -16,7 +16,16 @@ import {
 } from "lucide-react";
 import { PipGuide } from "@/components/pip-guide";
 import type { Narrator } from "@/hooks/use-narrator";
+import type { AttemptInput } from "@/hooks/use-learning-record";
 import { ZONES } from "@/lib/game-data";
+import {
+  hidesPicturesUntilAnswered,
+  hintStep,
+  isAssisted,
+  narrowOptions,
+  nextHintLevel,
+  type HintLevel,
+} from "@/lib/learning/hint-ladder";
 import type { Activity, Adventure, AnswerOption } from "@/lib/game-types";
 
 interface GameSessionProps {
@@ -27,6 +36,7 @@ interface GameSessionProps {
   playSound: (effect: "tap" | "correct" | "try-again" | "hint" | "complete") => void;
   onExit: () => void;
   onComplete: () => void;
+  onAttempt: (attempt: AttemptInput) => void;
 }
 
 export function GameSession({
@@ -37,25 +47,48 @@ export function GameSession({
   playSound,
   onExit,
   onComplete,
+  onAttempt,
 }: GameSessionProps) {
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<"correct" | "try-again" | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
-  const [eliminated, setEliminated] = useState<string[]>([]);
-  const [hintLevel, setHintLevel] = useState(0);
+  const [triedIds, setTriedIds] = useState<string[]>([]);
+  const [hintLevel, setHintLevel] = useState<HintLevel>(0);
   const [completed, setCompleted] = useState(false);
   const retryTimer = useRef<number | null>(null);
+  // Set in an effect rather than at render so the clock is read once per item,
+  // not on every re-render.
+  const itemStartedAt = useRef<number>(0);
   const { speak, stop, preload, isSpeaking } = narrator;
   const activities = adventure.activities;
   const activity = activities[index];
   const zone = ZONES.find((item) => item.id === activity.id) ?? ZONES[0];
   const percent = ((index + (feedback === "correct" ? 1 : 0)) / activities.length) * 100;
 
+  const answered = feedback === "correct";
+
+  // The answer is only ever drawn once the child has produced it.
+  const revealed = answered;
+  const showPictures =
+    revealed || !hidesPicturesUntilAnswered(activity.kind);
+
+  const visibleOptions = useMemo(
+    () =>
+      isAssisted(hintLevel) && !answered
+        ? narrowOptions(activity.options, triedIds)
+        : activity.options,
+    [activity.options, answered, hintLevel, triedIds],
+  );
+
   useEffect(() => {
     const next = activities[index + 1];
     if (next) preload(next.voice.prompt);
   }, [activities, index, preload]);
+
+  useEffect(() => {
+    itemStartedAt.current = Date.now();
+  }, [index]);
 
   useEffect(
     () => () => {
@@ -66,15 +99,33 @@ export function GameSession({
   );
 
   const chooseAnswer = (option: AnswerOption) => {
-    if (feedback === "correct" || eliminated.includes(option.id)) return;
+    if (answered) return;
     setSelected(option.id);
     playSound("tap");
+
+    const expectedId = activity.options.find((entry) => entry.correct)?.id;
+    // Runs only from an onClick gesture, never during render.
+    // eslint-disable-next-line react-hooks/purity
+    const latencyMs = Date.now() - itemStartedAt.current;
 
     if (option.correct) {
       setFeedback("correct");
       setFeedbackMessage(activity.bubble.correct);
       playSound("correct");
       speak(activity.voice.correct, activity.celebration);
+
+      onAttempt({
+        itemId: activity.key,
+        skillId: activity.skillId,
+        correct: true,
+        hintLevel,
+        retries: triedIds.length,
+        // A success reached only after the ladder narrowed the field is
+        // recorded as assisted, and can never contribute to mastery.
+        mode: isAssisted(hintLevel) ? "assisted" : "tap",
+        latencyMs,
+      });
+
       if (!reducedMotion) {
         void confetti({
           particleCount: 58,
@@ -85,32 +136,51 @@ export function GameSession({
           ticks: 140,
         });
       }
-    } else {
-      setFeedback("try-again");
-      const nextHint = Math.min(hintLevel + 1, 2);
-      const message =
-        activity.bubble.wrong[option.id] ?? activity.bubble.hints[nextHint - 1];
-      const voiceLine =
-        activity.voice.wrong[option.id] ?? activity.voice.hints[nextHint - 1];
-      setHintLevel(nextHint);
-      setFeedbackMessage(message);
-      setEliminated((current) => [...current, option.id]);
-      playSound("try-again");
-      speak(voiceLine, message);
-      retryTimer.current = window.setTimeout(() => {
-        setSelected(null);
-        setFeedback(null);
-        setFeedbackMessage(null);
-      }, 1650);
+      return;
     }
+
+    // A wrong answer climbs one rung and gives targeted feedback, but the
+    // option stays live: the child still has to choose the right one.
+    const raised = nextHintLevel(hintLevel);
+    const step = hintStep(activity, raised);
+    const message = activity.bubble.wrong[option.id] ?? step.message;
+    const voiceLine = activity.voice.wrong[option.id] ?? step.voiceId;
+
+    setFeedback("try-again");
+    setHintLevel(raised);
+    setFeedbackMessage(message);
+    setTriedIds((current) =>
+      current.includes(option.id) ? current : [...current, option.id],
+    );
+    playSound("try-again");
+    speak(voiceLine, message);
+
+    onAttempt({
+      itemId: activity.key,
+      skillId: activity.skillId,
+      correct: false,
+      hintLevel,
+      retries: triedIds.length,
+      mode: isAssisted(hintLevel) ? "assisted" : "tap",
+      latencyMs,
+      chosenId: option.id,
+      expectedId,
+    });
+
+    retryTimer.current = window.setTimeout(() => {
+      setSelected(null);
+      setFeedback(null);
+      setFeedbackMessage(null);
+    }, 1650);
   };
 
   const showHint = () => {
-    const nextHint = Math.min(hintLevel + 1, 2);
-    setHintLevel(nextHint);
-    setFeedbackMessage(activity.bubble.hints[nextHint - 1]);
+    const raised = nextHintLevel(hintLevel);
+    const step = hintStep(activity, raised);
+    setHintLevel(raised);
+    setFeedbackMessage(step.message);
     playSound("hint");
-    speak(activity.voice.hints[nextHint - 1], activity.bubble.hints[nextHint - 1]);
+    speak(step.voiceId, step.message);
   };
 
   const continueSession = () => {
@@ -130,7 +200,7 @@ export function GameSession({
     setSelected(null);
     setFeedback(null);
     setFeedbackMessage(null);
-    setEliminated([]);
+    setTriedIds([]);
     setHintLevel(0);
     playSound("tap");
     speak(nextActivity.voice.prompt, nextActivity.bubble.prompt);
@@ -146,6 +216,20 @@ export function GameSession({
       />
     );
   }
+
+  const bubbleMessage =
+    feedbackMessage ??
+    (answered
+      ? activity.bubble.correct
+      : hintLevel > 0
+        ? hintStep(activity, hintLevel).message
+        : activity.bubble.prompt);
+
+  const bubbleVoiceId = answered
+    ? activity.voice.correct
+    : hintLevel > 0
+      ? hintStep(activity, hintLevel).voiceId
+      : activity.voice.prompt;
 
   return (
     <main
@@ -202,39 +286,22 @@ export function GameSession({
           </div>
 
           <PipGuide
-            message={
-              feedbackMessage ??
-              (feedback === "correct"
-                ? activity.bubble.correct
-                : hintLevel > 0
-                  ? activity.bubble.hints[hintLevel - 1]
-                  : activity.bubble.prompt)
-            }
-            mood={feedback === "correct" ? "celebrate" : hintLevel > 0 ? "thinking" : "hello"}
-            onSpeak={() =>
-              speak(
-                feedback === "correct"
-                  ? activity.voice.correct
-                  : hintLevel > 0
-                    ? activity.voice.hints[hintLevel - 1]
-                    : activity.voice.prompt,
-                feedback === "correct"
-                  ? activity.celebration
-                  : hintLevel > 0
-                    ? activity.bubble.hints[hintLevel - 1]
-                    : activity.bubble.prompt,
-              )
-            }
+            message={bubbleMessage}
+            mood={answered ? "celebrate" : hintLevel > 0 ? "thinking" : "hello"}
+            onSpeak={() => speak(bubbleVoiceId, bubbleMessage)}
             compact
             isSpeaking={isSpeaking}
           />
 
-          <ActivityVisual activity={activity} reducedMotion={reducedMotion} />
+          <ActivityVisual
+            activity={activity}
+            reducedMotion={reducedMotion}
+            revealed={revealed}
+          />
 
           <div className={`answer-grid answer-grid--${activity.kind}`}>
-            {activity.options.map((option) => {
+            {visibleOptions.map((option) => {
               const isSelected = selected === option.id;
-              const isEliminated = eliminated.includes(option.id);
               const state =
                 isSelected && feedback === "correct"
                   ? "correct"
@@ -244,9 +311,9 @@ export function GameSession({
               return (
                 <motion.button
                   key={option.id}
-                  className={`answer-card ${state ? `answer-card--${state}` : ""} ${isEliminated && !isSelected ? "answer-card--eliminated" : ""}`}
+                  className={`answer-card ${state ? `answer-card--${state}` : ""}`}
                   onClick={() => chooseAnswer(option)}
-                  disabled={isEliminated}
+                  disabled={answered}
                   whileHover={reducedMotion ? {} : { y: -4, scale: 1.015 }}
                   whileTap={{ scale: 0.97 }}
                   animate={
@@ -256,7 +323,7 @@ export function GameSession({
                   }
                   aria-label={option.spokenLabel}
                 >
-                  {option.icon && (
+                  {option.icon && showPictures && (
                     <span className="answer-card__icon" aria-hidden="true">
                       {option.icon}
                     </span>
@@ -271,12 +338,12 @@ export function GameSession({
           </div>
 
           <div className="activity-footer">
-            <button className="hint-button" onClick={showHint}>
+            <button className="hint-button" onClick={showHint} disabled={answered}>
               {hintLevel > 0 ? <Lightbulb /> : <HelpCircle />}
               {hintLevel > 0 ? "Hear the hint again" : "I’d like a hint"}
             </button>
             <AnimatePresence>
-              {feedback === "correct" && (
+              {answered && (
                 <motion.button
                   className="primary-button"
                   onClick={continueSession}
@@ -298,9 +365,15 @@ export function GameSession({
 interface ActivityVisualProps {
   activity: Activity;
   reducedMotion: boolean;
+  /** True once the child has answered. Nothing that gives the answer away may render before this. */
+  revealed: boolean;
 }
 
-function ActivityVisual({ activity, reducedMotion }: ActivityVisualProps) {
+function ActivityVisual({
+  activity,
+  reducedMotion,
+  revealed,
+}: ActivityVisualProps) {
   if (activity.kind === "rhyme" || activity.kind === "sound") {
     return (
       <div className="activity-visual sound-visual" aria-hidden="true">
@@ -328,21 +401,43 @@ function ActivityVisual({ activity, reducedMotion }: ActivityVisualProps) {
   }
 
   if (activity.kind === "letter") {
+    // The lantern used to render the correct option's label, which meant every
+    // letter activity displayed its own answer in 96px type. The child could
+    // shape-match without ever hearing the sound. The lantern now stays dark
+    // until answered; the sound is available only through the speaker button.
+    const answerLetter = activity.options.find((option) => option.correct)?.label;
+
     return (
       <div className="activity-visual lantern-visual" aria-hidden="true">
         <div className="lantern-cord" />
         <motion.div
-          className="letter-lantern"
+          className={`letter-lantern ${revealed ? "" : "letter-lantern--dark"}`}
           animate={
-            reducedMotion
-              ? {}
-              : { filter: ["drop-shadow(0 0 8px #f5bd63)", "drop-shadow(0 0 22px #f5bd63)", "drop-shadow(0 0 8px #f5bd63)"] }
+            revealed && !reducedMotion
+              ? {
+                  filter: [
+                    "drop-shadow(0 0 8px #f5bd63)",
+                    "drop-shadow(0 0 22px #f5bd63)",
+                    "drop-shadow(0 0 8px #f5bd63)",
+                  ],
+                }
+              : {}
           }
           transition={{ duration: 1.8, repeat: Infinity }}
         >
-          {activity.options.find((option) => option.correct)?.label ?? "m"}
+          {revealed ? (
+            answerLetter
+          ) : (
+            <motion.span
+              className="letter-lantern__listen"
+              animate={reducedMotion ? {} : { scale: [1, 1.12, 1], opacity: [0.55, 1, 0.55] }}
+              transition={{ duration: 1.9, repeat: Infinity }}
+            >
+              ?
+            </motion.span>
+          )}
         </motion.div>
-        <span className="lantern-glow" />
+        {revealed && <span className="lantern-glow" />}
       </div>
     );
   }
@@ -410,9 +505,9 @@ function ActivityVisual({ activity, reducedMotion }: ActivityVisualProps) {
     activity.storyWords?.join(" ") ??
     activity.prompt.split("?")[0] ??
     "A tiny story is ready.";
-  const storyIcon =
-    activity.options.find((option) => option.correct)?.icon ?? "📖";
 
+  // Previously the stage displayed the correct option's icon, so the answer to
+  // the comprehension question stood on stage next to Pip.
   return (
     <div className="activity-visual story-visual">
       <div className="story-visual__stage" aria-hidden="true">
@@ -424,7 +519,7 @@ function ActivityVisual({ activity, reducedMotion }: ActivityVisualProps) {
       </p>
       <div className="story-visual__characters" aria-hidden="true">
         <span>🦊</span>
-        <span>{storyIcon}</span>
+        <span>📖</span>
       </div>
     </div>
   );

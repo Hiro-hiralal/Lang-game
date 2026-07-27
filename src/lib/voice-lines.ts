@@ -1,14 +1,10 @@
-export type VoiceMood =
-  | "welcome"
-  | "curious"
-  | "coach"
-  | "celebrate"
-  | "story";
+import {
+  registerVoiceLines,
+  type VoiceLine,
+  type VoiceMood,
+} from "@/lib/narration-registry";
 
-export interface VoiceLine {
-  text: string;
-  mood: VoiceMood;
-}
+export type { VoiceLine, VoiceMood };
 
 export const VOICE_LINES: Record<string, VoiceLine> = {
   welcome: {
@@ -145,7 +141,4 @@ export const VOICE_LINES: Record<string, VoiceLine> = {
   },
 };
 
-export function getVoiceLine(lineId: string) {
-  return VOICE_LINES[lineId] ?? WORLD_VOICE_LINES[lineId];
-}
-import { WORLD_VOICE_LINES } from "@/lib/world-data";
+registerVoiceLines(VOICE_LINES);
