@@ -1213,6 +1213,9 @@ export const GARDEN_PLANTS = [
   { id: "story-tree", name: "Story Tree", icon: "🌳", cost: 2 },
   { id: "vowel-vine", name: "Vowel Vine", icon: "🌿", cost: 1 },
   { id: "firefly-fern", name: "Firefly Fern", icon: "✨", cost: 1 },
+  // Earned inside "Moon Mouse and the Lost Lantern" rather than bought with
+  // seeds, so the garden carries a trace of the story that put it there.
+  { id: "lantern-seed", name: "Mo’s Lantern Seed", icon: "🏮", cost: 0 },
 ];
 
 export function adventuresForRegion(regionId: ZoneId) {

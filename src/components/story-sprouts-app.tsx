@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { CollectionBook } from "@/components/collection-book";
+import { EpisodePlayer } from "@/components/episode/episode-player";
 import { GardenMap } from "@/components/garden-map";
 import { GameSession } from "@/components/game-session";
 import { MyGarden } from "@/components/my-garden";
@@ -18,6 +19,7 @@ import {
   usePersistentProgress,
 } from "@/hooks/use-persistent-progress";
 import { useSoundscape } from "@/hooks/use-soundscape";
+import { getEpisodeForAdventure } from "@/lib/episodes/moon-mouse";
 import {
   ADVENTURES,
   getAdventure,
@@ -63,6 +65,14 @@ export function StorySproutsApp() {
     setWorldToast(null);
     soundscape.start();
     learning.beginSession(adventure.id);
+
+    // Some chapters are full episodes, which open on their own story beat
+    // rather than straight into a question.
+    if (getEpisodeForAdventure(adventure.id)) {
+      navigate("episode");
+      return;
+    }
+
     navigate("session");
     const first = adventure.activities[0];
     narrator.speak(first.voice.prompt, first.bubble.prompt);
@@ -73,7 +83,7 @@ export function StorySproutsApp() {
     navigate("region");
   };
 
-  const completeAdventure = () => {
+  const completeAdventure = (rewardPlantId?: string) => {
     const alreadyCompleted = progress.completedAdventureIds.includes(
       activeAdventure.id,
     );
@@ -105,6 +115,11 @@ export function StorySproutsApp() {
           activeAdventure.rewardStickerId,
         ]),
       ),
+      // An episode's reward plants itself: the seed the child was handed in
+      // the story is in their garden when they get there, permanently.
+      plantedSeedIds: rewardPlantId
+        ? Array.from(new Set([...current.plantedSeedIds, rewardPlantId]))
+        : current.plantedSeedIds,
       totalStars: current.totalStars + (alreadyCompleted ? 1 : 3),
       dailyQuestDate: new Date().toISOString().slice(0, 10),
       lastPlayed: new Date().toISOString(),
@@ -174,10 +189,11 @@ export function StorySproutsApp() {
   };
 
   const dailyAdventure = getDailyAdventure(progress.completedAdventureIds);
+  const episode = getEpisodeForAdventure(activeAdventure.id);
 
   return (
     <div className="app-shell">
-      {screen !== "welcome" && screen !== "session" && (
+      {screen !== "welcome" && screen !== "session" && screen !== "episode" && (
         <TopBar
           screen={screen}
           soundOn={progress.soundOn}
@@ -187,7 +203,7 @@ export function StorySproutsApp() {
         />
       )}
 
-      {worldToast && screen !== "session" && (
+      {worldToast && screen !== "session" && screen !== "episode" && (
         <div className="garden-toast" role="status">
           <span>✦</span>
           {worldToast}
@@ -251,6 +267,18 @@ export function StorySproutsApp() {
             <GameSession
               childName={progress.childName}
               adventure={activeAdventure}
+              reducedMotion={progress.reducedMotion}
+              narrator={narrator}
+              playSound={soundscape.play}
+              onExit={leaveAdventure}
+              onComplete={completeAdventure}
+              onAttempt={learning.recordAttempt}
+            />
+          )}
+
+          {screen === "episode" && episode && (
+            <EpisodePlayer
+              episode={episode}
               reducedMotion={progress.reducedMotion}
               narrator={narrator}
               playSound={soundscape.play}

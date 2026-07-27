@@ -4412,3 +4412,285 @@ a:focus-visible {
 .reduce-motion .sorter__item {
   transition: none;
 }
+
+/* ============================================================
+   Episodes
+   A story whose beats happen to teach reading.
+   ============================================================ */
+
+.episode {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.episode--cinematic {
+  padding: 0;
+}
+
+.episode__close {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  z-index: 5;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--ink);
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+}
+
+.episode__header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 18px 8px 78px;
+}
+
+.episode__progress {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.episode__progress span {
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.episode__progress strong {
+  font-size: 1.05rem;
+}
+
+.episode__beat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 18px 34px;
+  max-width: 720px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.episode__beat-text {
+  margin: 0;
+  font-family: Georgia, serif;
+  font-size: 1.15rem;
+  font-style: italic;
+  color: var(--sage-dark);
+  text-align: center;
+}
+
+.episode__instruction {
+  margin: 0;
+  font-size: 1.5rem;
+  text-align: center;
+}
+
+/* ---------- Story cards ---------- */
+
+.story-cards {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 26px;
+  cursor: pointer;
+  transition: background 900ms ease;
+}
+
+.story-cards__skip {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-size: 0.92rem;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+
+.story-cards__skip svg {
+  width: 16px;
+  height: 16px;
+}
+
+.story-cards__scene {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 26px;
+  text-align: center;
+}
+
+.story-cards__cast {
+  display: flex;
+  gap: 18px;
+  font-size: clamp(4rem, 17vw, 7rem);
+  line-height: 1;
+  filter: drop-shadow(0 12px 26px rgba(0, 0, 0, 0.32));
+}
+
+.story-cards__text {
+  margin: 0;
+  max-width: 18ch;
+  font-family: Georgia, serif;
+  font-size: clamp(1.5rem, 5.4vw, 2.3rem);
+  line-height: 1.45;
+  color: #fff;
+  text-shadow: 0 3px 18px rgba(0, 0, 0, 0.42);
+}
+
+.story-cards__footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.story-cards__dots {
+  display: flex;
+  gap: 8px;
+}
+
+.story-cards__dots span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.42);
+  transition: background 220ms ease, transform 220ms ease;
+}
+
+.story-cards__dots span.is-active {
+  background: #fff;
+  transform: scale(1.32);
+}
+
+/* ---------- Explore scene ---------- */
+
+.explore-scene {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px 18px 34px;
+  transition: background 900ms ease;
+}
+
+.explore-scene__header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  /* Clears the absolutely-positioned close button in the episode shell. */
+  padding: 6px 0 0 60px;
+  color: #fff;
+}
+
+.explore-scene__header h1 {
+  margin: 2px 0 0;
+  font-size: 1.3rem;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.38);
+}
+
+.explore-scene__eyebrow {
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.82;
+}
+
+.explore-scene__stage {
+  position: relative;
+  flex: 1;
+  min-height: 340px;
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 62% 44%, rgba(255, 233, 179, 0.16), transparent 42%),
+    rgba(12, 18, 38, 0.42);
+  overflow: hidden;
+}
+
+.explore-scene__object {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  min-width: 72px;
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px;
+  border: none;
+  border-radius: 20px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.explore-scene__object span {
+  font-size: 2.7rem;
+  line-height: 1;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.4));
+}
+
+.explore-scene__object small {
+  padding: 2px 10px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--ink);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.explore-scene__object.is-found span {
+  filter: drop-shadow(0 0 16px rgba(255, 224, 150, 0.85));
+}
+
+.explore-scene__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 6px;
+  color: #fff;
+}
+
+.explore-scene__footer p {
+  margin: 0;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.36);
+}
+
+.adventure-card__badge {
+  margin-left: 9px;
+  padding: 2px 10px;
+  border-radius: 99px;
+  background: var(--lavender);
+  color: #fff;
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}

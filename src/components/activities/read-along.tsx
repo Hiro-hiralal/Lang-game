@@ -31,7 +31,6 @@ export function ReadAlong({
   const config = activity.readAlong;
   const [cursor, setCursor] = useState(-1);
   const [playing, setPlaying] = useState(false);
-  const [finished, setFinished] = useState(false);
   const timer = useRef<number | null>(null);
 
   const words: WordRef[] = (config?.lines ?? []).flatMap((line, lineIndex) =>
@@ -59,7 +58,6 @@ export function ReadAlong({
         const next = current + 1;
         if (next >= words.length) {
           setPlaying(false);
-          setFinished(true);
           return words.length - 1;
         }
         return next;
@@ -74,7 +72,6 @@ export function ReadAlong({
   const startPlayback = () => {
     if (answered) return;
     setCursor(-1);
-    setFinished(false);
     setPlaying(true);
     if (config.narrationId) {
       speak(config.narrationId, config.lines.join(" "));
@@ -85,6 +82,13 @@ export function ReadAlong({
     setPlaying(false);
     clearTimer();
   };
+
+  /**
+   * The child has been through every word — by listening, or by tapping their
+   * way along themselves. A confident reader who never presses play still gets
+   * to say they finished.
+   */
+  const reachedEnd = words.length > 0 && cursor >= words.length - 1;
 
   const globalIndex = (lineIndex: number, wordIndex: number) =>
     words.findIndex(
@@ -145,7 +149,7 @@ export function ReadAlong({
         </span>
       </div>
 
-      {finished && !answered && (
+      {reachedEnd && !playing && !answered && (
         <motion.button
           type="button"
           className="primary-button"

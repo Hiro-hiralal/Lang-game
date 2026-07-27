@@ -10,6 +10,7 @@ import {
   Sparkles,
   Star,
 } from "lucide-react";
+import { getEpisodeForAdventure } from "@/lib/episodes/moon-mouse";
 import { ZONES } from "@/lib/game-data";
 import { adventuresForRegion } from "@/lib/world-data";
 import type { PlayerProgress, ZoneId } from "@/lib/game-types";
@@ -71,6 +72,12 @@ export function RegionScreen({
               index === 0 ||
               progress.completedAdventureIds.includes(previous.id);
             const completed = progress.completedAdventureIds.includes(adventure.id);
+            // A chapter built as a full episode advertises itself as one:
+            // its own title, its own length, and a badge.
+            const episode = getEpisodeForAdventure(adventure.id);
+            const title = episode?.title ?? adventure.title;
+            const description = episode?.subtitle ?? adventure.description;
+            const minutes = episode?.minutes ?? adventure.minutes;
             return (
               <motion.article
                 className={`adventure-card ${!unlocked ? "adventure-card--locked" : ""}`}
@@ -83,11 +90,14 @@ export function RegionScreen({
                   {completed ? <Check /> : unlocked ? adventure.chapter : <LockKeyhole />}
                 </div>
                 <div className="adventure-card__copy">
-                  <span>Chapter {adventure.chapter}</span>
-                  <h3>{adventure.title}</h3>
-                  <p>{adventure.description}</p>
+                  <span>
+                    Chapter {adventure.chapter}
+                    {episode && <em className="adventure-card__badge">Full episode</em>}
+                  </span>
+                  <h3>{title}</h3>
+                  <p>{description}</p>
                   <div>
-                    <small><Clock3 /> {adventure.minutes} min</small>
+                    <small><Clock3 /> {minutes} min</small>
                     <small>{Array.from({ length: adventure.difficulty }).map((_, star) => <Star key={star} fill="currentColor" />)}</small>
                     <small><Sparkles /> {adventure.rewardName}</small>
                   </div>

@@ -14,6 +14,7 @@ export type Screen =
   | "map"
   | "region"
   | "session"
+  | "episode"
   | "garden"
   | "stories"
   | "collection"
