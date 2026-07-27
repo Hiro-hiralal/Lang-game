@@ -4145,7 +4145,19 @@ a:focus-visible {
   flex-direction: column;
   align-items: center;
   gap: 14px;
-  padding-bottom: 20px;
+  padding: 22px 18px 24px;
+  /* The base .bridge-visual paints a river across the lower half, which sat on
+     top of the caption. The sweep variant keeps the bank and moves the water
+     into its own element so the text below it stays readable. */
+  background: linear-gradient(180deg, rgba(226, 241, 221, 0.85), rgba(255, 253, 247, 0.95));
+}
+
+.bridge-visual--sweep .bridge-visual__river {
+  right: 0;
+  left: 0;
+  bottom: 0;
+  height: 62px;
+  opacity: 0.5;
 }
 
 .blend-stone {

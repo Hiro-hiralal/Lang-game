@@ -36,7 +36,17 @@ export type LetterSoundSkillId =
   | "ls-r"
   | "ls-h"
   | "ls-e"
-  | "ls-b";
+  | "ls-b"
+  | "ls-l"
+  | "ls-u"
+  | "ls-k"
+  | "ls-w"
+  | "ls-v"
+  | "ls-y"
+  | "ls-j"
+  | "ls-z"
+  | "ls-x"
+  | "ls-q";
 
 export type DecodingSkillId =
   | "blend-cvc"
@@ -94,6 +104,20 @@ const LETTER_SOUNDS: Array<{
   { id: "ls-h", grapheme: "h", phoneme: "h", keyword: "hat" },
   { id: "ls-e", grapheme: "e", phoneme: "eh", keyword: "egg" },
   { id: "ls-b", grapheme: "b", phoneme: "b", keyword: "bell" },
+  // The PRD's P0 pack is the sixteen above. These complete the alphabet: they
+  // are taught later and used less, but the story content depends on them, and
+  // the decodability lint has no way to approve a word built from a
+  // correspondence nobody has declared.
+  { id: "ls-l", grapheme: "l", phoneme: "lllll", keyword: "leaf" },
+  { id: "ls-u", grapheme: "u", phoneme: "uh", keyword: "umbrella" },
+  { id: "ls-k", grapheme: "k", phoneme: "k", keyword: "kite" },
+  { id: "ls-w", grapheme: "w", phoneme: "w", keyword: "wind" },
+  { id: "ls-v", grapheme: "v", phoneme: "vvvvv", keyword: "vine" },
+  { id: "ls-y", grapheme: "y", phoneme: "y", keyword: "yellow" },
+  { id: "ls-j", grapheme: "j", phoneme: "j", keyword: "jam" },
+  { id: "ls-z", grapheme: "z", phoneme: "zzzzz", keyword: "zigzag" },
+  { id: "ls-x", grapheme: "x", phoneme: "ks", keyword: "fox" },
+  { id: "ls-q", grapheme: "q", phoneme: "kw", keyword: "quilt" },
 ];
 
 /** The first three letter-sounds gate blending: m + a + t makes "mat". */

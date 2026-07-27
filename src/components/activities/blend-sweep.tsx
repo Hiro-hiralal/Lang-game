@@ -161,10 +161,12 @@ export function BlendSweep({
       </div>
 
       <p className="bridge-visual__caption" aria-live="polite">
+        {/* The heading already says what to do; this line carries the sounds
+            as they join up, so the child sees the blend accumulating. */}
         {answered
           ? `${config.word}! The bridge is joined.`
           : reached === 0
-            ? "Press the first stone and sweep across without stopping."
+            ? "Start on the left."
             : `${config.phonemes.slice(0, reached).join("–")}…`}
       </p>
 
