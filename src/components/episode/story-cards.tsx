@@ -67,7 +67,14 @@ export function StoryCards({
       onClick={advance}
       role="presentation"
     >
-      <button className="story-cards__skip" onClick={onDone} type="button">
+      <button
+        className="story-cards__skip"
+        onClick={(event) => {
+          event.stopPropagation();
+          onDone();
+        }}
+        type="button"
+      >
         <SkipForward aria-hidden="true" />
         {skipLabel}
       </button>
@@ -121,7 +128,14 @@ export function StoryCards({
             />
           ))}
         </div>
-        <button className="primary-button" onClick={advance} type="button">
+        <button
+          className="primary-button"
+          onClick={(event) => {
+            event.stopPropagation();
+            advance();
+          }}
+          type="button"
+        >
           {isLast ? "Let’s go" : "Next"}
           <ArrowRight aria-hidden="true" />
         </button>
