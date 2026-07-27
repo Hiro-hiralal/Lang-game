@@ -16,24 +16,48 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { SKILL_ROWS } from "@/lib/game-data";
+import { SECURE_INDEPENDENT_SUCCESSES } from "@/lib/learning/mastery";
+import {
+  STATE_COLOR,
+  STATE_LABEL,
+  formatDuration,
+  formatRate,
+  type DashboardStats,
+  type SkillSummary,
+} from "@/lib/learning/dashboard";
+import { ADVENTURES } from "@/lib/world-data";
 import type { PlayerProgress } from "@/lib/game-types";
 
 interface ParentDashboardProps {
   progress: PlayerProgress;
+  stats: DashboardStats;
   onBack: () => void;
   onToggleSound: () => void;
   onToggleReducedMotion: () => void;
   onReset: () => void;
 }
 
+/**
+ * The grown-up view.
+ *
+ * Every number here is derived from the attempt log. It previously rendered a
+ * hand-written array of five skills with invented percentages and a hardcoded
+ * average session length, which is not a defensible thing to show a parent
+ * about their child's learning. Where the evidence is thin, this says so.
+ *
+ * No reading age, percentile, or prediction, per PRD section 11.
+ */
 export function ParentDashboard({
   progress,
+  stats,
   onBack,
   onToggleSound,
   onToggleReducedMotion,
   onReset,
 }: ParentDashboardProps) {
+  const averageSession = formatDuration(stats.medianSessionMs);
+  const independent = formatRate(stats.independentRate);
+
   return (
     <main className="grownup">
       <section className="grownup__header">
@@ -45,21 +69,18 @@ export function ParentDashboard({
           <div>
             <span className="section-kicker">Grown-up garden</span>
             <h1>
-              {progress.childName} has completed{" "}
-              {progress.completedAdventureIds.length} of 20 world adventures.
+              {stats.isEmpty
+                ? "No adventures yet"
+                : `${progress.childName} has completed ${progress.completedAdventureIds.length} of ${ADVENTURES.length} world adventures.`}
             </h1>
             <p>
-              A calm view of what she practiced, where she is growing and one
-              useful thing to try away from the screen.
+              {stats.isEmpty
+                ? "Once an adventure is finished, this page will show what was practised and what to try next. It will only ever show what actually happened."
+                : "A calm view of what was practised, where things are growing, and one useful thing to try away from the screen."}
             </p>
           </div>
           <div className="grownup__pip">
-            <Image
-              src="/art/pip-fox.webp"
-              alt="Pip the fox"
-              fill
-              sizes="152px"
-            />
+            <Image src="/art/pip-fox.webp" alt="Pip the fox" fill sizes="152px" />
           </div>
         </div>
       </section>
@@ -69,35 +90,41 @@ export function ParentDashboard({
           <MetricCard
             icon={<CalendarDays />}
             label="This week"
-            value={`${progress.sessionsCompleted} sessions`}
-            note="A healthy little rhythm"
+            value={`${stats.sessionsThisWeek} ${stats.sessionsThisWeek === 1 ? "session" : "sessions"}`}
+            note={
+              stats.completedSessions === 0
+                ? "Nothing finished yet"
+                : `${stats.completedSessions} finished all-time`
+            }
             color="#E79A59"
           />
           <MetricCard
             icon={<Sparkles />}
-            label="Independent wins"
-            value={`${progress.totalStars} stars`}
-            note={`${progress.unlockedStickerIds.length} treasures collected`}
+            label="Answered without a hint"
+            value={independent ?? "—"}
+            note={
+              independent
+                ? `across ${stats.totalAttempts} tries`
+                : "Not enough practice yet to say"
+            }
             color="#6EAB72"
           />
           <MetricCard
             icon={<Clock3 />}
-            label="Average adventure"
-            value="5m 08s"
-            note="Right in the target range"
+            label="Typical adventure"
+            value={averageSession ?? "—"}
+            note={
+              averageSession
+                ? "Median of finished adventures"
+                : "Finish one to see this"
+            }
             color="#5CA7B7"
           />
           <MetricCard
             icon={<Brain />}
-            label="Current focus"
-            value={
-              progress.completedAdventureIds.length < 8
-                ? "Sound foundations"
-                : progress.completedAdventureIds.length < 16
-                  ? "Words & blending"
-                  : "Story meaning"
-            }
-            note="The world opens in a deliberate sequence"
+            label="Remembered later"
+            value={`${stats.delayedSuccesses} ${stats.delayedSuccesses === 1 ? "skill" : "skills"}`}
+            note="Still correct two or more days on"
             color="#8C79B8"
           />
         </div>
@@ -111,40 +138,50 @@ export function ParentDashboard({
             <div className="panel__heading">
               <div>
                 <span className="section-kicker">Learning journey</span>
-                <h2>Skills are blooming</h2>
+                <h2>
+                  {stats.introduced.length === 0
+                    ? "Nothing practised yet"
+                    : "Skills met so far"}
+                </h2>
               </div>
-              <span className="fresh-badge">
-                <CheckCircle2 />
-                Updated today
-              </span>
+              {stats.introduced.length > 0 && (
+                <span className="fresh-badge">
+                  <CheckCircle2 />
+                  {stats.secure.length} secure
+                </span>
+              )}
             </div>
-            <div className="skill-list">
-              {SKILL_ROWS.map((skill) => (
-                <div className="skill-row" key={skill.name}>
-                  <div className="skill-row__title">
-                    <span
-                      className="skill-row__leaf"
-                      style={{ background: skill.color }}
-                    >
-                      <Leaf />
-                    </span>
-                    <div>
-                      <strong>{skill.name}</strong>
-                      <small>{skill.status}</small>
-                    </div>
-                  </div>
-                  <div className="skill-row__meter" aria-label={`${skill.score}%`}>
-                    <span
-                      style={{
-                        width: `${skill.score}%`,
-                        background: skill.color,
-                      }}
-                    />
-                  </div>
-                  <strong className="skill-row__score">{skill.score}%</strong>
-                </div>
-              ))}
-            </div>
+
+            {stats.introduced.length === 0 ? (
+              <p className="panel__empty">
+                Skills appear here as they come up in play. Nothing is shown
+                before it has been practised, so this page stays honest about
+                what has and has not happened.
+              </p>
+            ) : (
+              <div className="skill-list">
+                {stats.introduced.map((summary) => (
+                  <SkillRow key={summary.skillId} summary={summary} />
+                ))}
+              </div>
+            )}
+
+            {stats.confusions.length > 0 && (
+              <div className="confusion-note">
+                <strong>Sounds that get mixed up</strong>
+                <ul>
+                  {stats.confusions.map((pair) => (
+                    <li key={`${pair.expectedId}-${pair.chosenId}`}>
+                      <code>{pair.expectedId}</code> chosen as{" "}
+                      <code>{pair.chosenId}</code>
+                      <small>
+                        {pair.count} times · {pair.label}
+                      </small>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </motion.section>
 
           <section className="panel offline-card">
@@ -170,7 +207,7 @@ export function ParentDashboard({
         <section className="panel settings-panel">
           <div className="panel__heading">
             <div>
-              <span className="section-kicker">Showcase settings</span>
+              <span className="section-kicker">Settings</span>
               <h2>Comfort, privacy and control</h2>
             </div>
             <span className="privacy-pill">
@@ -181,13 +218,13 @@ export function ParentDashboard({
 
           <div className="settings-grid">
             <button className="setting-button" onClick={onToggleSound}>
-              <span>
-                {progress.soundOn ? <Volume2 /> : <VolumeX />}
-              </span>
+              <span>{progress.soundOn ? <Volume2 /> : <VolumeX />}</span>
               <div>
                 <strong>Voice and music</strong>
                 <small>
-                  {progress.soundOn ? "Pip performs over gentle garden music" : "Currently muted"}
+                  {progress.soundOn
+                    ? "Pip performs over gentle garden music"
+                    : "Currently muted"}
                 </small>
               </div>
               <Toggle on={progress.soundOn} />
@@ -219,19 +256,62 @@ export function ParentDashboard({
                 <RotateCcw />
               </span>
               <div>
-                <strong>Reset the showcase</strong>
-                <small>Return to the polished starting progress</small>
+                <strong>Erase everything</strong>
+                <small>Delete all progress and the learning record</small>
               </div>
             </button>
           </div>
         </section>
 
         <p className="grownup__privacy-note">
-          This showcase stores progress only in this browser. It does not record
-          a child, upload speech or use behavioral advertising.
+          Progress and the learning record are stored only in this browser. The
+          record holds lesson outcomes — which item, whether it was right, and
+          whether a hint was used. It does not record a child, upload speech, or
+          use behavioural advertising.
         </p>
       </section>
     </main>
+  );
+}
+
+function SkillRow({ summary }: { summary: SkillSummary }) {
+  const { record } = summary;
+  const color = STATE_COLOR[record.state];
+
+  // The bar and the figure both show progress toward secure, not a score. A
+  // count is meaningful from the very first success, where a percentage over
+  // two attempts would be noise presented as a finding.
+  const progress = Math.min(
+    record.independentSuccesses / SECURE_INDEPENDENT_SUCCESSES,
+    1,
+  );
+
+  return (
+    <div className="skill-row">
+      <div className="skill-row__title">
+        <span className="skill-row__leaf" style={{ background: color }}>
+          <Leaf />
+        </span>
+        <div>
+          <strong>{summary.label}</strong>
+          <small>
+            {STATE_LABEL[record.state]}
+            {record.assistedSuccesses > 0 &&
+              ` · ${record.assistedSuccesses} with help`}
+          </small>
+        </div>
+      </div>
+      <div
+        className="skill-row__meter"
+        role="img"
+        aria-label={`${record.independentSuccesses} of ${SECURE_INDEPENDENT_SUCCESSES} unaided successes`}
+      >
+        <span style={{ width: `${progress * 100}%`, background: color }} />
+      </div>
+      <strong className="skill-row__score" title="Unaided successes needed to count as secure">
+        {record.independentSuccesses}/{SECURE_INDEPENDENT_SUCCESSES}
+      </strong>
+    </div>
   );
 }
 

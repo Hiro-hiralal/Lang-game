@@ -125,6 +125,7 @@ export function useLearningRecord() {
     attempts,
     sessions,
     mastery,
+    evaluatedAt,
     hydrated,
     beginSession,
     finishSession,

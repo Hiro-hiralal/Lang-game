@@ -14,11 +14,14 @@ import {
 } from "lucide-react";
 import { PipGuide } from "@/components/pip-guide";
 import { ZONES } from "@/lib/game-data";
-import { adventuresForRegion, getDailyAdventure } from "@/lib/world-data";
-import type { PlayerProgress, ZoneId } from "@/lib/game-types";
+import { ADVENTURES } from "@/lib/world-data";
+import { adventuresForRegion } from "@/lib/world-data";
+import type { Adventure, PlayerProgress, ZoneId } from "@/lib/game-types";
 
 interface GardenMapProps {
   progress: PlayerProgress;
+  /** Chosen by the session composer from this child's mastery, not the date. */
+  dailyAdventure: Adventure;
   onStart: (adventureId: string) => void;
   onOpenRegion: (regionId: ZoneId) => void;
   onOpenGarden: () => void;
@@ -30,6 +33,7 @@ interface GardenMapProps {
 
 export function GardenMap({
   progress,
+  dailyAdventure,
   onStart,
   onOpenRegion,
   onOpenGarden,
@@ -38,8 +42,7 @@ export function GardenMap({
   onSpeak,
   isSpeaking,
 }: GardenMapProps) {
-  const dailyAdventure = getDailyAdventure(progress.completedAdventureIds);
-  const totalAdventures = 20;
+  const totalAdventures = ADVENTURES.length;
   const storiesUnlocked = progress.completedAdventureIds.filter((id) =>
     ["moon-mouse", "rhyme-river", "sam-and-cat", "red-hat", "moon-picnic", "sun-sail", "frog-ferry", "word-sprouts", "vowel-vines", "echo-festival"].includes(id),
   ).length;

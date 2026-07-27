@@ -284,10 +284,3 @@ export const ACTIVITIES: Activity[] = [
   },
 ];
 
-export const SKILL_ROWS = [
-  { name: "Rhyming words", status: "Secure", score: 92, color: "#E9A84C" },
-  { name: "Letter sounds · m s a t", status: "Secure", score: 86, color: "#DF806C" },
-  { name: "Smooth blending", status: "Practicing", score: 68, color: "#5EAAB8" },
-  { name: "CVC word building", status: "Learning", score: 52, color: "#73A95B" },
-  { name: "Tiny-story meaning", status: "New", score: 28, color: "#8E7AB9" },
-];

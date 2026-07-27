@@ -1226,12 +1226,3 @@ export function getAdventure(adventureId: string) {
   return ADVENTURES.find((adventure) => adventure.id === adventureId);
 }
 
-export function getDailyAdventure(completedAdventureIds: string[]) {
-  const available = ADVENTURES.filter((adventure) => {
-    const regionAdventures = adventuresForRegion(adventure.regionId);
-    const previous = regionAdventures[adventure.chapter - 2];
-    return !previous || completedAdventureIds.includes(previous.id);
-  });
-  const day = Math.floor(Date.now() / 86_400_000);
-  return available[day % available.length] ?? ADVENTURES[0];
-}

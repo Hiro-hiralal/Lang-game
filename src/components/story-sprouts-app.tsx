@@ -20,11 +20,9 @@ import {
 } from "@/hooks/use-persistent-progress";
 import { useSoundscape } from "@/hooks/use-soundscape";
 import { getEpisodeForAdventure } from "@/lib/episodes/moon-mouse";
-import {
-  ADVENTURES,
-  getAdventure,
-  getDailyAdventure,
-} from "@/lib/world-data";
+import { pickDailyAdventure } from "@/lib/learning/composer";
+import { buildDashboardStats } from "@/lib/learning/dashboard";
+import { ADVENTURES, getAdventure } from "@/lib/world-data";
 import type {
   Adventure,
   LibraryStory,
@@ -188,7 +186,15 @@ export function StorySproutsApp() {
     navigate("region");
   };
 
-  const dailyAdventure = getDailyAdventure(progress.completedAdventureIds);
+  // Today's quest comes from what this child has demonstrated, not from the
+  // calendar.
+  const dailyAdventure =
+    pickDailyAdventure(
+      ADVENTURES,
+      progress.completedAdventureIds,
+      learning.mastery,
+      learning.evaluatedAt,
+    ) ?? ADVENTURES[0];
   const episode = getEpisodeForAdventure(activeAdventure.id);
 
   return (
@@ -239,6 +245,7 @@ export function StorySproutsApp() {
           {screen === "map" && (
             <GardenMap
               progress={progress}
+              dailyAdventure={dailyAdventure}
               onStart={startAdventure}
               onOpenRegion={openRegion}
               onOpenGarden={() => navigate("garden")}
@@ -316,6 +323,12 @@ export function StorySproutsApp() {
           {screen === "grownup" && (
             <ParentDashboard
               progress={progress}
+              stats={buildDashboardStats(
+                learning.attempts,
+                learning.sessions,
+                learning.mastery,
+                learning.evaluatedAt,
+              )}
               onBack={() => navigate("map")}
               onToggleSound={toggleSound}
               onToggleReducedMotion={toggleReducedMotion}
